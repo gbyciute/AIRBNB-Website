@@ -1,0 +1,22 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "gbyciute", email = "gbyciute@gmail.com" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "alembic>=1.14.0",
+    "fastapi[standard]>=0.128.8",
+    "psycopg[binary]>=3.2.0",
+    "python-dotenv>=1.0.0",
+    "sqlalchemy>=2.0.0",
+]
+
+[project.scripts]
+backend = "backend:main"
+
+[build-system]
+requires = ["uv_build>=0.12.16,<0.13.0"]
+build-backend = "uv_build"
