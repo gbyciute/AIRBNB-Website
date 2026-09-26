@@ -1,6 +1,11 @@
 """Request and response schemas for houses."""
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+HouseColor = Literal["blue", "wine", "green", "cyan", "purple", "red"]
 
 
 class HouseCreate(BaseModel):
@@ -23,5 +28,16 @@ class HouseRead(HouseCreate):
     """A house returned from the API."""
 
     id: int
+    color: HouseColor
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class HouseColorUpdate(BaseModel):
+    """The display color selected for a house."""
+
+    color: HouseColor
+
+
+class HouseUpdate(HouseCreate):
+    """Editable house information."""
