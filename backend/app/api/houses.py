@@ -21,6 +21,15 @@ def list_houses(db: DatabaseSession) -> list[House]:
     return list(db.scalars(select(House).order_by(House.id.desc())))
 
 
+@router.get("/{house_id}", response_model=HouseRead)
+def get_house(house_id: int, db: DatabaseSession) -> House:
+    """Return one house by ID."""
+    house = db.get(House, house_id)
+    if house is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="House not found")
+    return house
+
+
 @router.post("", response_model=HouseRead, status_code=status.HTTP_201_CREATED)
 def create_house(house: HouseCreate, db: DatabaseSession) -> House:
     """Create and return a house."""
