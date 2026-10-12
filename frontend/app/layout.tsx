@@ -3,6 +3,7 @@ import { Geist_Mono, Noto_Sans, Roboto } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { LanguageProvider } from "@/components/language-provider"
+import { AuthGate } from "@/components/auth-gate"
 import { cn } from "@/lib/utils";
 
 const robotoHeading = Roboto({subsets:['latin'],variable:'--font-heading'});
@@ -28,7 +29,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <LanguageProvider>
-            {children}
+            <AuthGate>{children}</AuthGate>
           </LanguageProvider>
         </ThemeProvider>
       </body>

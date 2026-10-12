@@ -9,6 +9,13 @@ export type House = {
   color: HouseColor
 }
 
+export type AuthUser = {
+  id: number
+  username: string
+  is_admin: boolean
+  is_active: boolean
+}
+
 export type CreateHouseInput = Omit<House, "id" | "color">
 
 export type InventoryOperation = "check_in" | "check_out" | "laundry"
@@ -50,7 +57,39 @@ export type InventoryForm = Omit<InventoryFormInput, "lines"> & {
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000",
+  withCredentials: true,
 })
+
+api.interceptors.response.use(undefined, (error: unknown) => {
+  if (axios.isAxiosError(error) && error.response?.status === 401 && error.config?.url !== "/auth/login") {
+    window.dispatchEvent(new Event("airbnb-auth-expired"))
+  }
+  return Promise.reject(error)
+})
+
+export async function login(username: string, password: string): Promise<AuthUser> {
+  const response = await api.post<AuthUser>("/auth/login", { username, password })
+  return response.data
+}
+
+export async function checkSession(): Promise<AuthUser> {
+  const response = await api.get<AuthUser>("/auth/session")
+  return response.data
+}
+
+export async function logout(): Promise<void> {
+  await api.post("/auth/logout")
+}
+
+export async function getUsers(): Promise<AuthUser[]> {
+  const response = await api.get<AuthUser[]>("/auth/users")
+  return response.data
+}
+
+export async function createUser(username: string, password: string): Promise<AuthUser> {
+  const response = await api.post<AuthUser>("/auth/users", { username, password })
+  return response.data
+}
 
 export async function getHouses(): Promise<House[]> {
   const response = await api.get<House[]>("/houses")

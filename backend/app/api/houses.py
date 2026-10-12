@@ -7,11 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.core.auth import require_authenticated
 from app.models.house import House
 from app.schemas.house import HouseColorUpdate, HouseCreate, HouseRead, HouseUpdate
 
 
-router = APIRouter(prefix="/houses", tags=["houses"])
+router = APIRouter(prefix="/houses", tags=["houses"], dependencies=[Depends(require_authenticated)])
 DatabaseSession = Annotated[Session, Depends(get_db)]
 
 

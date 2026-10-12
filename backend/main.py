@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.houses import router as houses_router
+from app.api.auth import router as auth_router
 from app.api.inventory_forms import house_inventory_router, inventory_router
 from app.core.config import settings
 
@@ -19,6 +20,7 @@ app.add_middleware(
 )
 
 app.include_router(houses_router)
+app.include_router(auth_router)
 app.include_router(house_inventory_router)
 app.include_router(inventory_router)
 

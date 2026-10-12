@@ -7,6 +7,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.auth import require_authenticated
 from app.db.session import get_db
 from app.models.house import House
 from app.models.inventory_form import InventoryForm, InventoryFormLine
@@ -14,8 +15,12 @@ from app.schemas.inventory_form import InventoryFormCreate, InventoryFormRead, I
 from app.services.inventory_pdf import build_inventory_pdf
 
 
-house_inventory_router = APIRouter(prefix="/houses", tags=["inventory forms"])
-inventory_router = APIRouter(prefix="/inventory-forms", tags=["inventory forms"])
+house_inventory_router = APIRouter(
+    prefix="/houses", tags=["inventory forms"], dependencies=[Depends(require_authenticated)]
+)
+inventory_router = APIRouter(
+    prefix="/inventory-forms", tags=["inventory forms"], dependencies=[Depends(require_authenticated)]
+)
 DatabaseSession = Annotated[Session, Depends(get_db)]
 
 

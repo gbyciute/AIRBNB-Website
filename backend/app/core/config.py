@@ -23,6 +23,7 @@ class Settings:
         ).split(",")
         if origin.strip()
     ]
+    session_secret = os.getenv("SESSION_SECRET", "")
 
 
 settings = Settings()
