@@ -8,7 +8,7 @@ import { AuthGate } from "@/components/auth-gate"
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Madeira cleaning & care",
+  title: "MADEIRA CLEANING & CARE",
 }
 
 const robotoHeading = Roboto({subsets:['latin'],variable:'--font-heading'});

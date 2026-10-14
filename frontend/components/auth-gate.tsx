@@ -13,7 +13,7 @@ import { checkSession, login, logout, type AuthUser } from "@/lib/api"
 
 const copy = {
   en: {
-    heading: "Madeira cleaning & care",
+    heading: "MADEIRA CLEANING & CARE",
     description: "Sign in to manage your houses and cleaning records.",
     username: "Username",
     password: "Password",
@@ -25,7 +25,7 @@ const copy = {
     loading: "Checking your login…",
   },
   pt: {
-    heading: "Madeira cleaning & care",
+    heading: "MADEIRA CLEANING & CARE",
     description: "Inicie sessão para gerir as casas e os registos de limpeza.",
     username: "Nome de utilizador",
     password: "Palavra-passe",
@@ -133,7 +133,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               alt="Madeira Cleaning & Care logo"
               width={1000}
               height={777}
-              className="mx-auto mb-3 h-16 w-auto mix-blend-multiply object-contain sm:h-[72px]"
+              className="mx-auto mb-3 h-24 w-auto mix-blend-multiply object-contain sm:h-28"
+              unoptimized
               priority
             />
             <h1 className="font-heading text-3xl font-semibold tracking-tight">{strings.heading}</h1>

@@ -14,7 +14,7 @@ import { createHouse, deleteHouse, getHouses, type House as HouseRecord, type Ho
 
 const pageCopy = {
   pt: {
-    title: "Madeira cleaning & care", subtitle: "Mantenha os seus alojamentos Airbnb e respetivas moradas organizados num só lugar.", addHouse: "Adicionar casa",
+    title: "MADEIRA CLEANING & CARE", subtitle: "Mantenha os seus alojamentos Airbnb e respetivas moradas organizados num só lugar.", addHouse: "Adicionar casa",
     search: "Pesquisar casas por nome", dismiss: "Fechar", loading: "A carregar casas", noHouses: "Ainda não existem casas",
     noHousesHelp: "Adicione a primeira propriedade para começar a organizar o seu portefólio Airbnb.", noMatches: "Nenhuma casa encontrada", noMatchesHelp: "Experimente pesquisar outro nome.",
     houses: "Casas", open: "Abrir", actions: "Ações para", editDetails: "Editar dados", changeColor: "Alterar cor", chooseColor: "Escolher cor da casa", houseColor: "cor da casa", deleteHouse: "Eliminar casa",
@@ -23,7 +23,7 @@ const pageCopy = {
     apiError: "Não foi possível ligar à API. Confirme que o servidor está a funcionar.", saveError: "Não foi possível guardar esta casa. Tente novamente.", colorError: "Não foi possível alterar a cor da casa. Tente novamente.", deleteError: "Não foi possível eliminar esta casa. Tente novamente.", created: "Casa adicionada com sucesso.", updated: "Dados da casa atualizados.", colorUpdated: "Cor da casa atualizada.", deleted: "Casa eliminada.", close: "Fechar",
   },
   en: {
-    title: "Madeira cleaning & care", subtitle: "Keep your Airbnb homes and their addresses together in one place.", addHouse: "Add a house",
+    title: "MADEIRA CLEANING & CARE", subtitle: "Keep your Airbnb homes and their addresses together in one place.", addHouse: "Add a house",
     search: "Search houses by name", dismiss: "Dismiss", loading: "Loading houses", noHouses: "No houses yet",
     noHousesHelp: "Add your first property to begin building your Airbnb portfolio.", noMatches: "No matching houses", noMatchesHelp: "Try a different house name.",
     houses: "Houses", open: "Open", actions: "Actions for", editDetails: "Edit details", changeColor: "Change color", chooseColor: "Choose house color", houseColor: "house color", deleteHouse: "Delete house",
