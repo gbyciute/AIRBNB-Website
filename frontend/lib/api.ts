@@ -58,7 +58,7 @@ export type InventoryForm = Omit<InventoryFormInput, "lines"> & {
 }
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000",
+  baseURL: "/api",
   withCredentials: true,
 })
 
@@ -136,10 +136,9 @@ export function downloadInventoryFormPdf(
   input: InventoryFormInput,
   language: "pt" | "en",
 ): void {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"
   const form = document.createElement("form")
   form.method = "POST"
-  form.action = `${baseUrl}/houses/${houseId}/inventory-forms/pdf-download`
+  form.action = `/api/houses/${houseId}/inventory-forms/pdf-download`
   form.hidden = true
 
   const payloadField = document.createElement("input")
