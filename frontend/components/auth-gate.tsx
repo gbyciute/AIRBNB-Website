@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react"
 import axios from "axios"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 
 import { useLanguage } from "@/components/language-provider"
 import { AuthContext } from "@/components/auth-context"
@@ -127,6 +128,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             <LanguageSwitcher />
           </div>
           <div className="mb-8 text-center">
+            <Image
+              src="/cleaning-care-mark.png"
+              alt="Madeira Cleaning & Care logo"
+              width={1000}
+              height={777}
+              className="mx-auto mb-3 h-16 w-auto mix-blend-multiply object-contain sm:h-[72px]"
+              priority
+            />
             <h1 className="font-heading text-3xl font-semibold tracking-tight">{strings.heading}</h1>
             <p className="mt-3 text-sm leading-6 text-stone-600">{strings.description}</p>
           </div>
