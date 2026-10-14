@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useParams, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, ArrowRight, CalendarBlank, FileText, MapPin, MagnifyingGlass, Plus, SpinnerGap, Trash, X } from "@phosphor-icons/react"
+import { ArrowLeft, ArrowRight, CalendarBlank, CaretDown, FileText, MapPin, MagnifyingGlass, Plus, SpinnerGap, Trash, X } from "@phosphor-icons/react"
 
 import { useLanguage } from "@/components/language-provider"
 import { LanguageSwitcher } from "@/components/language-switcher"
@@ -155,14 +155,15 @@ export default function HouseInventoryPage() {
                     <MagnifyingGlass className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-stone-500" aria-hidden="true" />
                     <input type="search" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder={copy.searchHistory} className="h-10 w-full border border-stone-300 bg-white py-2 pr-3 pl-9 text-sm outline-none placeholder:text-stone-500 focus:border-stone-800" />
                   </label>
-                  <label>
+                  <label className="relative block">
                     <span className="sr-only">{copy.filterOperation}</span>
-                    <select value={operationFilter} onChange={(event) => setOperationFilter(event.target.value)} className="h-10 w-full border border-stone-300 bg-white px-3 text-sm text-stone-700 outline-none focus:border-stone-800">
+                    <select value={operationFilter} onChange={(event) => setOperationFilter(event.target.value)} className="h-10 w-full appearance-none border border-stone-300 bg-white py-2 pr-10 pl-3 text-sm text-stone-700 outline-none focus:border-stone-800">
                       <option value="">{copy.filterOperation}</option>
                       <option value="check_in">{copy.operations.check_in}</option>
                       <option value="check_out">{copy.operations.check_out}</option>
                       <option value="laundry">{copy.operations.laundry}</option>
                     </select>
+                    <CaretDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-stone-600" aria-hidden="true" />
                   </label>
                   <label className="relative">
                     <span className="sr-only">{copy.filterDate}</span>
