@@ -7,7 +7,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.auth import require_authenticated
+from app.core.auth import CurrentUser, require_authenticated
 from app.db.session import get_db
 from app.models.house import House
 from app.models.inventory_form import InventoryForm, InventoryFormLine
@@ -31,7 +31,11 @@ def _not_found() -> HTTPException:
 def _load_form(db: Session, form_id: int) -> InventoryForm:
     form = db.scalar(
         select(InventoryForm)
-        .options(selectinload(InventoryForm.lines))
+        .options(
+            selectinload(InventoryForm.lines),
+            selectinload(InventoryForm.created_by),
+            selectinload(InventoryForm.last_edited_by),
+        )
         .where(InventoryForm.id == form_id)
     )
     if form is None:
@@ -54,7 +58,11 @@ def list_inventory_forms(house_id: int, db: DatabaseSession) -> list[InventoryFo
 
     forms = db.scalars(
         select(InventoryForm)
-        .options(selectinload(InventoryForm.lines))
+        .options(
+            selectinload(InventoryForm.lines),
+            selectinload(InventoryForm.created_by),
+            selectinload(InventoryForm.last_edited_by),
+        )
         .where(InventoryForm.house_id == house_id)
         .order_by(InventoryForm.count_date.desc(), InventoryForm.id.desc())
     )
@@ -70,6 +78,7 @@ def create_inventory_form(
     house_id: int,
     form_data: InventoryFormCreate,
     db: DatabaseSession,
+    current_user: CurrentUser,
 ) -> InventoryForm:
     """Create a tracking sheet for a house."""
     if db.get(House, house_id) is None:
@@ -77,6 +86,9 @@ def create_inventory_form(
 
     form = InventoryForm(
         house_id=house_id,
+        created_by_user_id=current_user.id,
+        last_edited_by_user_id=current_user.id,
+        last_edited_by_username_snapshot=current_user.username,
         **form_data.model_dump(exclude={"lines"}),
         lines=_make_lines(form_data),
     )
@@ -142,11 +154,14 @@ def update_inventory_form(
     form_id: int,
     form_data: InventoryFormUpdate,
     db: DatabaseSession,
+    current_user: CurrentUser,
 ) -> InventoryForm:
     """Replace the editable fields and rows of a tracking sheet."""
     form = _load_form(db, form_id)
     for field, value in form_data.model_dump(exclude={"lines"}).items():
         setattr(form, field, value)
+    form.last_edited_by_user_id = current_user.id
+    form.last_edited_by_username_snapshot = current_user.username
     form.lines = _make_lines(form_data)
     db.commit()
     return _load_form(db, form_id)

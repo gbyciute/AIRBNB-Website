@@ -55,6 +55,8 @@ class InventoryFormRead(InventoryFormCreate):
     house_id: int
     created_at: datetime
     updated_at: datetime
+    created_by_username: Optional[str] = None
+    last_edited_by_username: Optional[str] = None
     lines: list[InventoryFormLineRead]
 
     model_config = ConfigDict(from_attributes=True)

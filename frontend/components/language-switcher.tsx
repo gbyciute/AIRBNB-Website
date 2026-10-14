@@ -35,7 +35,7 @@ export function LanguageSwitcher() {
       onClick={() => setLanguage(targetLanguage)}
       aria-label={language === "pt" ? "Switch to English" : "Mudar para Português"}
       title={targetName}
-      className="inline-flex shrink-0 border border-stone-300 bg-white p-1 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 print:hidden"
+      className="inline-flex h-7 w-9 shrink-0 items-center justify-center border border-stone-300 bg-white p-0 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 print:hidden"
     >
       <FlagIcon language={targetLanguage} />
     </button>

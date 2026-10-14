@@ -9,6 +9,7 @@ from sqlalchemy import Date, DateTime, ForeignKey, Integer, JSON, String, Text, 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.user import User
 
 
 class InventoryForm(Base):
@@ -16,6 +17,13 @@ class InventoryForm(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     house_id: Mapped[int] = mapped_column(ForeignKey("houses.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    last_edited_by_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    last_edited_by_username_snapshot: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     count_date: Mapped[date] = mapped_column(Date, nullable=False)
     operation_types: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     room_division: Mapped[str] = mapped_column(String(255), nullable=False, default="")
@@ -29,12 +37,22 @@ class InventoryForm(Base):
     )
 
     house: Mapped[House] = relationship(back_populates="inventory_forms")
+    created_by: Mapped[Optional[User]] = relationship(foreign_keys=[created_by_user_id])
+    last_edited_by: Mapped[Optional[User]] = relationship(foreign_keys=[last_edited_by_user_id])
     lines: Mapped[list[InventoryFormLine]] = relationship(
         back_populates="inventory_form",
         cascade="all, delete-orphan",
         passive_deletes=True,
         order_by="InventoryFormLine.sort_order",
     )
+
+    @property
+    def created_by_username(self) -> Optional[str]:
+        return self.created_by.username if self.created_by else None
+
+    @property
+    def last_edited_by_username(self) -> Optional[str]:
+        return self.last_edited_by.username if self.last_edited_by else self.last_edited_by_username_snapshot
 
 
 class InventoryFormLine(Base):

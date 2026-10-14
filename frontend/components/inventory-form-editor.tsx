@@ -6,7 +6,9 @@ import { FormEvent, useEffect, useRef, useState } from "react"
 import { ArrowLeft, CaretDown, DownloadSimple, Plus, Printer, SpinnerGap, Trash } from "@phosphor-icons/react"
 
 import { useLanguage } from "@/components/language-provider"
+import { useAuth } from "@/components/auth-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
+import { AccountMenu } from "@/components/account-menu"
 import { Button } from "@/components/ui/button"
 import {
   createInventoryForm,
@@ -36,7 +38,7 @@ const editorCopy = {
     mobileQuantities: { stock_total: "Stock total casa", current_quantity: "Qtd. na casa (atual)", outgoing_laundry: "Saída (lavandaria)", incoming_clean: "Entrada (limpo)" },
     categories: { bed_linen: "TÊXTEIS DE CAMA (QUARTOS)", bath_linen: "TÊXTEIS DE BANHO", kitchen_cleaning: "TÊXTEIS DE COZINHA & LIMPEZA", decorative_textiles: "DECORAÇÃO, ACESSÓRIOS & TÊXTEIS DECORATIVOS" },
     wrongHouse: "Esta ficha de rastreio não pertence à casa selecionada.", loadError: "Não foi possível carregar a casa ou a ficha de rastreio. Tente novamente.", descriptionError: "Adicione uma descrição a todos os itens antes de guardar.", saveError: "Não foi possível guardar esta ficha. Verifique os campos e tente novamente.",
-    newTitle: "Nova ficha de rastreio", editTitle: "Editar ficha de rastreio", notFound: "Não foi possível encontrar esta ficha de rastreio.", backToHouse: "Voltar à casa", loading: "A carregar ficha de rastreio", backTo: "Voltar a", cancel: "Cancelar", savingSheet: "A guardar ficha", saveSheet: "Guardar ficha", saveChanges: "Guardar alterações", print: "Imprimir", downloadPdf: "Descarregar PDF", downloadingPdf: "A criar PDF", pdfError: "Não foi possível criar o PDF. Tente novamente.",
+    newTitle: "Nova ficha de rastreio", editTitle: "Editar ficha de rastreio", notFound: "Não foi possível encontrar esta ficha de rastreio.", backToHouse: "Voltar à casa", loading: "A carregar ficha de rastreio", backTo: "Voltar a", cancel: "Cancelar", moreActions: "Mais ações", savingSheet: "A guardar ficha", saveSheet: "Guardar ficha", saveChanges: "Guardar alterações", print: "Imprimir", downloadPdf: "Descarregar PDF", downloadingPdf: "A criar PDF", pdfError: "Não foi possível criar o PDF. Tente novamente.",
     subtitle: "Gestão de inventário & controlo de roupas", trackingSheet: "Ficha de rastreio", prefilledStart: "Esta ficha foi preenchida a partir da última ficha guardada", prefilledEnd: "Será guardada separadamente; a data foi definida para hoje e pode alterar todos os dados copiados antes de guardar.",
     details: "Dados da ficha de rastreio", countDate: "Data da contagem", operationType: "Tipo de operação", room: "Quarto / divisão", allRooms: "Todas as divisões", responsible: "Responsável", responsibleName: "Nome do responsável",
     item: "item", items: "itens", itemDescription: "Descrição do item", deleteItem: "Eliminar", condition: "Estado / observações", conditionPlaceholder: "Estado / notas (opcional)", noItems: "Ainda não existem itens nesta categoria.", noItemsDesktop: "Sem itens nesta categoria. Use “Adicionar linha” para criar um.", addLine: "Adicionar linha", removeItem: "Eliminar item",
@@ -50,7 +52,7 @@ const editorCopy = {
     mobileQuantities: { stock_total: "Total house stock", current_quantity: "Current qty. in house", outgoing_laundry: "Sent to laundry", incoming_clean: "Returned clean" },
     categories: { bed_linen: "BED LINEN (BEDROOMS)", bath_linen: "BATH LINEN", kitchen_cleaning: "KITCHEN & CLEANING TEXTILES", decorative_textiles: "DECOR, ACCESSORIES & DECORATIVE TEXTILES" },
     wrongHouse: "This tracking sheet does not belong to the selected house.", loadError: "Couldn’t load the house or tracking sheet. Please try again.", descriptionError: "Please add a description to every item before saving.", saveError: "Couldn’t save this tracking sheet. Please check your entries and try again.",
-    newTitle: "New tracking sheet", editTitle: "Edit tracking sheet", notFound: "This tracking sheet could not be found.", backToHouse: "Back to house", loading: "Loading tracking sheet", backTo: "Back to", cancel: "Cancel", savingSheet: "Saving sheet", saveSheet: "Save tracking sheet", saveChanges: "Save changes", print: "Print", downloadPdf: "Download PDF", downloadingPdf: "Creating PDF", pdfError: "Couldn’t create the PDF. Please try again.",
+    newTitle: "New tracking sheet", editTitle: "Edit tracking sheet", notFound: "This tracking sheet could not be found.", backToHouse: "Back to house", loading: "Loading tracking sheet", backTo: "Back to", cancel: "Cancel", moreActions: "More actions", savingSheet: "Saving sheet", saveSheet: "Save tracking sheet", saveChanges: "Save changes", print: "Print", downloadPdf: "Download PDF", downloadingPdf: "Creating PDF", pdfError: "Couldn’t create the PDF. Please try again.",
     subtitle: "Inventory management & linen control", trackingSheet: "Tracking sheet", prefilledStart: "This sheet is prefilled from your latest saved sheet", prefilledEnd: "It will be saved separately; the count date has been set to today, and you can change any copied details before saving.",
     details: "Tracking sheet details", countDate: "Count date", operationType: "Operation type", room: "Room / area", allRooms: "All rooms", responsible: "Person responsible", responsibleName: "Name of person responsible",
     item: "item", items: "items", itemDescription: "Item description", deleteItem: "Delete", condition: "Condition / notes", conditionPlaceholder: "Condition / notes (optional)", noItems: "No items in this category yet.", noItemsDesktop: "No items in this category. Use “Add line” to create one.", addLine: "Add line", removeItem: "Remove item",
@@ -104,6 +106,7 @@ function formSnapshot(details: FormDetails, lines: EditableLine[]) {
 
 export function InventoryFormEditor({ houseId, formId }: { houseId: number; formId?: number }) {
   const router = useRouter()
+  const { user } = useAuth()
   const { language } = useLanguage()
   const copy = editorCopy[language]
   const formatDate = (value: string) => new Intl.DateTimeFormat(language === "pt" ? "pt-PT" : "en-GB", { dateStyle: "long" }).format(new Date(`${value}T00:00:00`))
@@ -119,7 +122,7 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
     { field: "incoming_clean", label: copy.quantities.incoming_clean },
   ]
   const isValidRoute = Number.isInteger(houseId) && houseId > 0 && (formId === undefined || (Number.isInteger(formId) && formId > 0))
-  const draftKey = `airbnb:inventory-draft:${houseId}:${formId ?? "new"}`
+  const draftKey = `airbnb:inventory-draft:${user.id}:${houseId}:${formId ?? "new"}`
   const [house, setHouse] = useState<House | null>(null)
   const [details, setDetails] = useState<FormDetails>(createInitialDetails)
   const [lines, setLines] = useState<EditableLine[]>(() =>
@@ -418,18 +421,34 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
   return (
     <main className="min-h-svh bg-stone-100 p-2 text-stone-950 sm:p-6 print:bg-white print:p-0">
       <div className="mx-auto max-w-[1440px] border border-stone-200 bg-white px-4 py-6 shadow-sm sm:px-7 sm:py-8 lg:px-10 print:border-0 print:p-0 print:shadow-none">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
-          <div className="flex items-center justify-between gap-4 sm:justify-start">
-            <Link href={`/houses/${houseId}`} onClick={(event) => { if (!canLeave()) event.preventDefault(); else suppressWarningRef.current = true }} className="inline-flex items-center gap-2 text-sm font-medium text-stone-600 transition hover:text-stone-950"><ArrowLeft className="size-4" aria-hidden="true" /> {copy.backTo} {house.name}</Link>
-            <LanguageSwitcher />
+        <div className="mb-6 flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between print:hidden">
+          <div className="flex min-w-0 items-center justify-between gap-4 sm:justify-start">
+            <Link href={`/houses/${houseId}`} onClick={(event) => { if (!canLeave()) event.preventDefault(); else suppressWarningRef.current = true }} className="inline-flex min-w-0 max-w-[min(55vw,24rem)] items-center gap-2 truncate whitespace-nowrap text-sm font-medium text-stone-600 transition hover:text-stone-950"><ArrowLeft className="size-4 shrink-0" aria-hidden="true" /> {copy.backTo} {house.name}</Link>
+            <div className="flex items-center gap-3">
+              <LanguageSwitcher />
+              <AccountMenu />
+            </div>
           </div>
-          <div className="flex flex-col gap-2 sm:items-end">
+          <div className="hidden flex-col gap-2 sm:flex 2xl:items-end">
             <p className={`text-xs ${hasUnsavedChanges ? "text-amber-700" : "text-stone-500"}`} role="status">{draftMessage}</p>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row">
-              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => window.print()}><Printer data-icon="inline-start" />{copy.print}</Button>
-              <Button type="button" variant="outline" className="w-full sm:w-auto" disabled={isDownloadingPdf} onClick={() => void handleDownloadPdf()}>{isDownloadingPdf ? <SpinnerGap className="animate-spin" data-icon="inline-start" /> : <DownloadSimple data-icon="inline-start" />}{isDownloadingPdf ? copy.downloadingPdf : copy.downloadPdf}</Button>
-              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={navigateBack}>{copy.cancel}</Button>
-              <Button type="submit" form="inventory-form" className="w-full sm:w-auto" disabled={isSaving}><>{isSaving ? <SpinnerGap className="animate-spin" data-icon="inline-start" /> : null}{isSaving ? copy.savingSheet : formId === undefined ? copy.saveSheet : copy.saveChanges}</></Button>
+            <div className="grid w-full grid-cols-2 gap-2 2xl:flex 2xl:w-auto">
+              <Button type="button" variant="outline" className="w-full 2xl:w-auto" onClick={() => window.print()}><Printer data-icon="inline-start" />{copy.print}</Button>
+              <Button type="button" variant="outline" className="w-full 2xl:w-auto" disabled={isDownloadingPdf} onClick={() => void handleDownloadPdf()}>{isDownloadingPdf ? <SpinnerGap className="animate-spin" data-icon="inline-start" /> : <DownloadSimple data-icon="inline-start" />}{isDownloadingPdf ? copy.downloadingPdf : copy.downloadPdf}</Button>
+              <Button type="button" variant="outline" className="w-full 2xl:w-auto" onClick={navigateBack}>{copy.cancel}</Button>
+              <Button type="submit" form="inventory-form" className="w-full 2xl:w-auto" disabled={isSaving}><>{isSaving ? <SpinnerGap className="animate-spin" data-icon="inline-start" /> : null}{isSaving ? copy.savingSheet : formId === undefined ? copy.saveSheet : copy.saveChanges}</></Button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2 sm:hidden">
+            <p className={`min-w-0 truncate text-xs ${hasUnsavedChanges ? "text-amber-700" : "text-stone-500"}`} role="status">{draftMessage}</p>
+            <div className="flex shrink-0 items-center gap-2">
+              <details className="relative">
+                <summary className="flex h-10 cursor-pointer list-none items-center border border-stone-300 bg-white px-3 text-sm font-medium text-stone-700">{copy.moreActions}</summary>
+                <div className="absolute top-11 right-0 z-30 grid w-48 gap-1 border border-stone-200 bg-white p-1.5 shadow-lg">
+                  <button type="button" onClick={() => void handleDownloadPdf()} disabled={isDownloadingPdf} className="flex min-h-10 items-center gap-2 px-3 text-left text-sm text-stone-700 hover:bg-stone-100 disabled:opacity-50">{isDownloadingPdf ? <SpinnerGap className="size-4 animate-spin" /> : <DownloadSimple className="size-4" />}{isDownloadingPdf ? copy.downloadingPdf : copy.downloadPdf}</button>
+                  <button type="button" onClick={() => window.print()} className="flex min-h-10 items-center gap-2 px-3 text-left text-sm text-stone-700 hover:bg-stone-100"><Printer className="size-4" />{copy.print}</button>
+                </div>
+              </details>
+              <Button type="submit" form="inventory-form" disabled={isSaving} className="h-10 px-3 text-sm">{isSaving && <SpinnerGap className="animate-spin" data-icon="inline-start" />}{isSaving ? copy.savingSheet : formId === undefined ? copy.saveSheet : copy.saveChanges}</Button>
             </div>
           </div>
         </div>

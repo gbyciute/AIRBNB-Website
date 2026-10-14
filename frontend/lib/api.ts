@@ -52,6 +52,8 @@ export type InventoryForm = Omit<InventoryFormInput, "lines"> & {
   house_id: number
   created_at: string
   updated_at: string
+  created_by_username: string | null
+  last_edited_by_username: string | null
   lines: InventoryFormLine[]
 }
 
@@ -89,6 +91,10 @@ export async function getUsers(): Promise<AuthUser[]> {
 export async function createUser(username: string, password: string): Promise<AuthUser> {
   const response = await api.post<AuthUser>("/auth/users", { username, password })
   return response.data
+}
+
+export async function deleteUser(userId: number): Promise<void> {
+  await api.delete(`/auth/users/${userId}`)
 }
 
 export async function getHouses(): Promise<House[]> {

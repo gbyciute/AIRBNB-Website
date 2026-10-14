@@ -7,13 +7,14 @@ import { DotsThree, House, MagnifyingGlass, MapPin, PencilSimple, Plus, SpinnerG
 
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/components/language-provider"
+import { AccountMenu } from "@/components/account-menu"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { SuccessToast } from "@/components/success-toast"
 import { createHouse, deleteHouse, getHouses, type House as HouseRecord, type HouseColor, updateHouse, updateHouseColor } from "@/lib/api"
 
 const pageCopy = {
   pt: {
-    title: "Madeira cleaning and care", subtitle: "Mantenha os seus alojamentos Airbnb e respetivas moradas organizados num só lugar.", addHouse: "Adicionar casa",
+    title: "Madeira cleaning & care", subtitle: "Mantenha os seus alojamentos Airbnb e respetivas moradas organizados num só lugar.", addHouse: "Adicionar casa",
     search: "Pesquisar casas por nome", dismiss: "Fechar", loading: "A carregar casas", noHouses: "Ainda não existem casas",
     noHousesHelp: "Adicione a primeira propriedade para começar a organizar o seu portefólio Airbnb.", noMatches: "Nenhuma casa encontrada", noMatchesHelp: "Experimente pesquisar outro nome.",
     houses: "Casas", open: "Abrir", actions: "Ações para", editDetails: "Editar dados", changeColor: "Alterar cor", chooseColor: "Escolher cor da casa", houseColor: "cor da casa", deleteHouse: "Eliminar casa",
@@ -22,7 +23,7 @@ const pageCopy = {
     apiError: "Não foi possível ligar à API. Confirme que o servidor está a funcionar.", saveError: "Não foi possível guardar esta casa. Tente novamente.", colorError: "Não foi possível alterar a cor da casa. Tente novamente.", deleteError: "Não foi possível eliminar esta casa. Tente novamente.", created: "Casa adicionada com sucesso.", updated: "Dados da casa atualizados.", colorUpdated: "Cor da casa atualizada.", deleted: "Casa eliminada.", close: "Fechar",
   },
   en: {
-    title: "Madeira cleaning and care", subtitle: "Keep your Airbnb homes and their addresses together in one place.", addHouse: "Add a house",
+    title: "Madeira cleaning & care", subtitle: "Keep your Airbnb homes and their addresses together in one place.", addHouse: "Add a house",
     search: "Search houses by name", dismiss: "Dismiss", loading: "Loading houses", noHouses: "No houses yet",
     noHousesHelp: "Add your first property to begin building your Airbnb portfolio.", noMatches: "No matching houses", noMatchesHelp: "Try a different house name.",
     houses: "Houses", open: "Open", actions: "Actions for", editDetails: "Edit details", changeColor: "Change color", chooseColor: "Choose house color", houseColor: "house color", deleteHouse: "Delete house",
@@ -201,16 +202,21 @@ export default function Page() {
     <main className="min-h-svh bg-stone-100 p-2 text-stone-950 sm:p-6">
       <div className="mx-auto min-h-[calc(100svh-1rem)] max-w-6xl border border-stone-200 bg-stone-50 px-4 py-8 shadow-sm sm:min-h-[calc(100svh-3rem)] sm:px-10 sm:py-12">
         <header className="flex flex-col items-center border-b border-stone-200 pb-8 text-center sm:pb-10">
-          <div className="flex w-full justify-end"><LanguageSwitcher /></div>
+          <div className="flex w-full items-center justify-end gap-3">
+            <LanguageSwitcher />
+            <AccountMenu />
+          </div>
           <div className="flex max-w-2xl flex-col items-center">
             <Image src="/cleaning-care-mark.png" alt="Madeira Cleaning & Care logo mark" width={1000} height={777} className="mb-2 h-16 w-auto mix-blend-multiply object-contain sm:h-[72px]" />
             <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-5xl">{copy.title}</h1>
             <p className="mt-3 max-w-lg text-sm leading-6 text-stone-600 sm:text-base sm:leading-7">{copy.subtitle}</p>
           </div>
-          <Button className="mt-6 w-full sm:mt-7 sm:w-auto" onClick={openCreateDialog}>
-            <Plus weight="bold" data-icon="inline-start" />
-            {copy.addHouse}
-          </Button>
+          <div className="mt-6 flex w-full flex-col items-center gap-3 sm:mt-7">
+            <Button className="w-full sm:w-auto" onClick={openCreateDialog}>
+              <Plus weight="bold" data-icon="inline-start" />
+              {copy.addHouse}
+            </Button>
+          </div>
           <label className="relative mt-4 w-full max-w-56 text-left">
             <span className="sr-only">{copy.search}</span>
             <MagnifyingGlass className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-stone-500" aria-hidden="true" />

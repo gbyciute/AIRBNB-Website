@@ -1,10 +1,15 @@
 import { Geist_Mono, Noto_Sans, Roboto } from "next/font/google"
+import type { Metadata } from "next"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { LanguageProvider } from "@/components/language-provider"
 import { AuthGate } from "@/components/auth-gate"
 import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Madeira cleaning & care",
+}
 
 const robotoHeading = Roboto({subsets:['latin'],variable:'--font-heading'});
 

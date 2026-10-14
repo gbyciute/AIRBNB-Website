@@ -9,7 +9,7 @@ type LanguageContextValue = {
   setLanguage: (language: Language) => void
 }
 
-const STORAGE_KEY = "airbnb-language"
+const STORAGE_KEY = "airbnb-language-pt-default"
 const CHANGE_EVENT = "airbnb-language-change"
 const LanguageContext = createContext<LanguageContextValue | null>(null)
 

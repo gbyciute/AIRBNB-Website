@@ -3,24 +3,25 @@
 import Link from "next/link"
 import { useParams, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, ArrowRight, CalendarBlank, FileText, MapPin, Plus, SpinnerGap, Trash } from "@phosphor-icons/react"
+import { ArrowLeft, ArrowRight, CalendarBlank, FileText, MapPin, MagnifyingGlass, Plus, SpinnerGap, Trash, X } from "@phosphor-icons/react"
 
 import { useLanguage } from "@/components/language-provider"
 import { LanguageSwitcher } from "@/components/language-switcher"
+import { AccountMenu } from "@/components/account-menu"
 import { SuccessToast } from "@/components/success-toast"
 import { deleteInventoryForm, getHouse, getInventoryForms, type House, type InventoryForm } from "@/lib/api"
 
 const pageCopy = {
   pt: {
     allHouses: "Todas as casas", notFound: "Não foi possível encontrar esta casa.", loading: "A carregar casa", loadError: "Não foi possível carregar esta casa. Verifique a ligação e tente novamente.", inventory: "Inventário da casa",
-    newSheet: "Nova ficha de rastreio", sheets: "Fichas de rastreio", sheetsHelp: "Cada ficha guardada fica separada para esta casa.", sheet: "ficha", sheetPlural: "fichas", noSheets: "Ainda não existem fichas de rastreio",
+    newSheet: "Nova ficha de rastreio", sheets: "Fichas de rastreio", sheetsHelp: "Cada ficha guardada fica separada para esta casa.", sheet: "ficha", sheetPlural: "fichas", lastEditedBy: "Última edição", unknownCreator: "Utilizador desconhecido", searchHistory: "Pesquisar divisão, responsável ou utilizador", filterOperation: "Todas as operações", filterDate: "Filtrar por data", clearFilters: "Limpar filtros", noFilteredSheets: "Nenhuma ficha corresponde aos filtros.", countSummaryOf: "de", noSheets: "Ainda não existem fichas de rastreio",
     noSheetsHelp: "Inicie uma contagem de inventário para esta casa. A ficha ficará guardada aqui e poderá ser editada em qualquer altura.", createFirst: "Criar primeira ficha", allRooms: "Todas as divisões", inventoryCount: "Contagem de inventário", item: "item", items: "itens",
     deleteLabel: "Eliminar ficha de rastreio", deleteTitle: "Eliminar esta ficha?", deleteDescriptionStart: "A ficha de", deleteDescriptionEnd: "e todas as respetivas linhas serão eliminadas permanentemente.", cancel: "Cancelar", deleting: "A eliminar", deleteSheet: "Eliminar ficha", deleteError: "Não foi possível eliminar esta ficha de rastreio. Tente novamente.",
     operations: { check_in: "Check-in", check_out: "Check-out", laundry: "Lavandaria" }, savedCreated: "Ficha de rastreio guardada.", savedUpdated: "Alterações guardadas.", deletedSuccess: "Ficha de rastreio eliminada.", close: "Fechar",
   },
   en: {
     allHouses: "All houses", notFound: "This house could not be found.", loading: "Loading house", loadError: "Couldn’t load this house. Please check the connection and try again.", inventory: "House inventory",
-    newSheet: "New tracking sheet", sheets: "Tracking sheets", sheetsHelp: "Each saved sheet is kept separately for this house.", sheet: "sheet", sheetPlural: "sheets", noSheets: "No tracking sheets yet",
+    newSheet: "New tracking sheet", sheets: "Tracking sheets", sheetsHelp: "Each saved sheet is kept separately for this house.", sheet: "sheet", sheetPlural: "sheets", lastEditedBy: "Last edited", unknownCreator: "Unknown user", searchHistory: "Search room, person, or username", filterOperation: "All operations", filterDate: "Filter by date", clearFilters: "Clear filters", noFilteredSheets: "No sheets match these filters.", countSummaryOf: "of", noSheets: "No tracking sheets yet",
     noSheetsHelp: "Start an inventory count for this house. The sheet will be saved here and can be edited any time.", createFirst: "Create first sheet", allRooms: "All rooms", inventoryCount: "Inventory count", item: "item", items: "items",
     deleteLabel: "Delete tracking sheet", deleteTitle: "Delete this sheet?", deleteDescriptionStart: "The", deleteDescriptionEnd: "sheet and all of its item rows will be permanently removed.", cancel: "Cancel", deleting: "Deleting", deleteSheet: "Delete sheet", deleteError: "Couldn’t delete this tracking sheet. Please try again.",
     operations: { check_in: "Check-in", check_out: "Check-out", laundry: "Laundry" }, savedCreated: "Tracking sheet saved.", savedUpdated: "Changes saved.", deletedSuccess: "Tracking sheet deleted.", close: "Close",
@@ -33,11 +34,15 @@ export default function HouseInventoryPage() {
   const searchParams = useSearchParams()
   const savedAction = searchParams.get("saved")
   const formatDate = (value: string) => new Intl.DateTimeFormat(language === "pt" ? "pt-PT" : "en-GB", { dateStyle: "long" }).format(new Date(`${value}T00:00:00`))
+  const formatDateTime = (value: string) => new Intl.DateTimeFormat(language === "pt" ? "pt-PT" : "en-GB", { dateStyle: "short", timeStyle: "short" }).format(new Date(value))
   const params = useParams<{ houseId: string }>()
   const houseId = Number(params.houseId)
   const isValidHouseId = Number.isInteger(houseId) && houseId > 0
   const [house, setHouse] = useState<House | null>(null)
   const [forms, setForms] = useState<InventoryForm[]>([])
+  const [historySearch, setHistorySearch] = useState("")
+  const [operationFilter, setOperationFilter] = useState("")
+  const [dateFilter, setDateFilter] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   const [formToDelete, setFormToDelete] = useState<InventoryForm | null>(null)
@@ -45,6 +50,16 @@ export default function HouseInventoryPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(() => savedAction === "created" ? copy.savedCreated : savedAction === "updated" ? copy.savedUpdated : null)
   const dismissSuccess = useCallback(() => setSuccess(null), [])
+  const normalizedHistorySearch = historySearch.trim().toLocaleLowerCase(language === "pt" ? "pt-PT" : "en-GB")
+  const filteredForms = forms.filter((form) => {
+    const searchableText = [form.room_division, form.responsible, form.counter_name, form.created_by_username, form.last_edited_by_username]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase(language === "pt" ? "pt-PT" : "en-GB")
+    return (!normalizedHistorySearch || searchableText.includes(normalizedHistorySearch))
+      && (!operationFilter || form.operation_types.includes(operationFilter as keyof typeof copy.operations))
+      && (!dateFilter || form.count_date === dateFilter)
+  })
 
   useEffect(() => {
     if (savedAction) window.history.replaceState(null, "", window.location.pathname)
@@ -97,7 +112,10 @@ export default function HouseInventoryPage() {
           <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-stone-600 transition hover:text-stone-950">
             <ArrowLeft className="size-4" aria-hidden="true" /> {copy.allHouses}
           </Link>
-          <LanguageSwitcher />
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <AccountMenu />
+          </div>
         </div>
 
         {!isValidHouseId ? (
@@ -127,8 +145,31 @@ export default function HouseInventoryPage() {
                   <h2 id="tracking-sheets-title" className="text-xl font-semibold">{copy.sheets}</h2>
                   <p className="mt-1 text-sm text-stone-600">{copy.sheetsHelp}</p>
                 </div>
-                <p className="text-xs font-semibold tracking-wider text-stone-500 uppercase">{forms.length} {forms.length === 1 ? copy.sheet : copy.sheetPlural}</p>
+                <p className="text-xs font-semibold tracking-wider text-stone-500 uppercase">{filteredForms.length} {copy.countSummaryOf} {forms.length} {forms.length === 1 ? copy.sheet : copy.sheetPlural}</p>
               </div>
+
+              {forms.length > 0 && (
+                <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_12rem_12rem]">
+                  <label className="relative block">
+                    <span className="sr-only">{copy.searchHistory}</span>
+                    <MagnifyingGlass className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-stone-500" aria-hidden="true" />
+                    <input type="search" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder={copy.searchHistory} className="h-10 w-full border border-stone-300 bg-white py-2 pr-3 pl-9 text-sm outline-none placeholder:text-stone-500 focus:border-stone-800" />
+                  </label>
+                  <label>
+                    <span className="sr-only">{copy.filterOperation}</span>
+                    <select value={operationFilter} onChange={(event) => setOperationFilter(event.target.value)} className="h-10 w-full border border-stone-300 bg-white px-3 text-sm text-stone-700 outline-none focus:border-stone-800">
+                      <option value="">{copy.filterOperation}</option>
+                      <option value="check_in">{copy.operations.check_in}</option>
+                      <option value="check_out">{copy.operations.check_out}</option>
+                      <option value="laundry">{copy.operations.laundry}</option>
+                    </select>
+                  </label>
+                  <label className="relative">
+                    <span className="sr-only">{copy.filterDate}</span>
+                    <input aria-label={copy.filterDate} type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-10 w-full border border-stone-300 bg-white px-3 text-sm text-stone-700 outline-none focus:border-stone-800" />
+                  </label>
+                </div>
+              )}
 
               {forms.length === 0 ? (
                 <div className="mt-5 flex min-h-64 flex-col items-center justify-center border border-dashed border-stone-300 bg-white px-5 py-10 text-center">
@@ -139,9 +180,14 @@ export default function HouseInventoryPage() {
                     <Plus className="size-4" weight="bold" aria-hidden="true" /> {copy.createFirst}
                   </Link>
                 </div>
+              ) : filteredForms.length === 0 ? (
+                <div className="mt-5 flex min-h-32 flex-col items-center justify-center border border-dashed border-stone-300 bg-white px-5 py-8 text-center">
+                  <p className="text-sm text-stone-600">{copy.noFilteredSheets}</p>
+                  <button type="button" onClick={() => { setHistorySearch(""); setOperationFilter(""); setDateFilter("") }} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-stone-800 underline underline-offset-4 hover:text-stone-600"><X className="size-4" aria-hidden="true" />{copy.clearFilters}</button>
+                </div>
               ) : (
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {forms.map((form) => (
+                  {filteredForms.map((form) => (
                     <article key={form.id} className="group relative min-h-36 border border-stone-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-stone-400 hover:shadow-md">
                       <Link href={`/houses/${house.id}/tracking/${form.id}`} className="flex min-h-36 flex-col justify-between p-5 pr-14 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stone-800">
                         <div>
@@ -151,9 +197,10 @@ export default function HouseInventoryPage() {
                           </div>
                           <p className="mt-3 line-clamp-1 text-sm text-stone-600">{form.room_division || copy.allRooms}</p>
                         </div>
-                        <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3 text-xs text-stone-500">
-                          <span>{form.operation_types.length ? form.operation_types.map((operation) => copy.operations[operation]).join(" · ") : copy.inventoryCount}</span>
-                          <span>{form.lines.length} {form.lines.length === 1 ? copy.item : copy.items}</span>
+                        <div className="mt-5 flex min-w-0 items-center justify-between gap-2 border-t border-stone-100 pt-3 text-[11px] text-stone-500 sm:text-xs">
+                          <span className="min-w-0 truncate" title={`${copy.lastEditedBy}: ${form.last_edited_by_username || copy.unknownCreator} · ${formatDateTime(form.updated_at)}`}>{copy.lastEditedBy}: {form.last_edited_by_username || copy.unknownCreator} · {formatDateTime(form.updated_at)}</span>
+                          <span className="min-w-0 truncate text-center">{form.operation_types.length ? form.operation_types.map((operation) => copy.operations[operation]).join(" · ") : copy.inventoryCount}</span>
+                          <span className="shrink-0 whitespace-nowrap">{form.lines.length} {form.lines.length === 1 ? copy.item : copy.items}</span>
                         </div>
                       </Link>
                       <button type="button" aria-label={`${copy.deleteLabel}: ${formatDate(form.count_date)}`} title={copy.deleteLabel} onClick={() => { setDeleteError(null); setFormToDelete(form) }} className="absolute top-3 right-3 inline-flex size-8 items-center justify-center rounded-full text-stone-400 transition hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400">

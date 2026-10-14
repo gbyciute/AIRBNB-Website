@@ -2,16 +2,17 @@
 
 import { FormEvent, useEffect, useState } from "react"
 import axios from "axios"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 import { useLanguage } from "@/components/language-provider"
+import { AuthContext } from "@/components/auth-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { Button } from "@/components/ui/button"
 import { checkSession, login, logout, type AuthUser } from "@/lib/api"
 
 const copy = {
   en: {
-    heading: "Madeira cleaning and care",
+    heading: "Madeira cleaning & care",
     description: "Sign in to manage your houses and cleaning records.",
     username: "Username",
     password: "Password",
@@ -20,12 +21,10 @@ const copy = {
     incorrect: "That username or password wasn’t correct. Try again.",
     unavailable: "Login is not configured yet. Please contact the site owner.",
     connection: "Could not connect. Check your internet connection and try again.",
-    logout: "Sign out",
     loading: "Checking your login…",
-    createAccounts: "Manage users",
   },
   pt: {
-    heading: "Madeira cleaning and care",
+    heading: "Madeira cleaning & care",
     description: "Inicie sessão para gerir as casas e os registos de limpeza.",
     username: "Nome de utilizador",
     password: "Palavra-passe",
@@ -34,13 +33,12 @@ const copy = {
     incorrect: "O nome de utilizador ou a palavra-passe está incorreto. Tente novamente.",
     unavailable: "O acesso ainda não está configurado. Contacte a pessoa responsável pelo site.",
     connection: "Não foi possível ligar. Verifique a ligação à internet e tente novamente.",
-    logout: "Terminar sessão",
     loading: "A verificar o acesso…",
-    createAccounts: "Gerir utilizadores",
   },
 } as const
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
   const { language } = useLanguage()
   const strings = copy[language]
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -52,7 +50,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true
-    const handleExpired = () => setUser(null)
+    const handleExpired = () => {
+      setUser(null)
+      setUsername("")
+      setPassword("")
+      router.replace("/")
+    }
     window.addEventListener("airbnb-auth-expired", handleExpired)
 
     void checkSession()
@@ -70,7 +73,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       active = false
       window.removeEventListener("airbnb-auth-expired", handleExpired)
     }
-  }, [])
+  }, [router])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -78,8 +81,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     setIsSubmitting(true)
     try {
       const loggedInUser = await login(username, password)
+      setUsername("")
       setPassword("")
       setUser(loggedInUser)
+      router.replace("/")
     } catch (loginError) {
       if (axios.isAxiosError(loginError) && loginError.response?.status === 401) {
         setError(strings.incorrect)
@@ -98,6 +103,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     try {
       await logout()
       setUser(null)
+      setUsername("")
+      setPassword("")
+      router.replace("/")
     } catch {
       setError(strings.connection)
     }
@@ -114,7 +122,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (!user) {
     return (
       <main className="flex min-h-svh items-center justify-center bg-stone-100 p-4 text-stone-950">
-        <section className="w-full max-w-md border border-stone-200 bg-stone-50 px-6 py-10 shadow-sm sm:px-10">
+        <section className="w-full max-w-lg border border-stone-200 bg-stone-50 px-7 py-12 shadow-sm sm:px-12">
           <div className="mb-5 flex justify-end">
             <LanguageSwitcher />
           </div>
@@ -157,14 +165,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <>
+    <AuthContext.Provider value={{ user, onLogout: handleLogout }}>
       {children}
-      <div className="fixed right-3 bottom-3 z-50 flex flex-col items-end gap-2">
-        {error ? <p className="max-w-64 border border-red-200 bg-white px-3 py-2 text-sm text-red-700 shadow" role="alert">{error}</p> : null}
-        {user.is_admin ? <Link className="border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 shadow-sm hover:bg-stone-100" href="/admin/users">{strings.createAccounts}</Link> : null}
-        <span className="bg-white/90 px-2 text-xs text-stone-500">{user.username}</span>
-        <Button onClick={handleLogout} size="sm" variant="outline">{strings.logout}</Button>
-      </div>
-    </>
+      {error ? <p className="fixed right-3 bottom-3 z-50 max-w-72 border border-red-200 bg-white px-3 py-2 text-sm text-red-700 shadow" role="alert">{error}</p> : null}
+    </AuthContext.Provider>
   )
 }
