@@ -10,6 +10,7 @@ import { LanguageSwitcher } from "@/components/language-switcher"
 import { AccountMenu } from "@/components/account-menu"
 import { SuccessToast } from "@/components/success-toast"
 import { deleteInventoryForm, getHouse, getInventoryForms, type House, type InventoryForm } from "@/lib/api"
+import { formatUsername } from "@/lib/display"
 
 const pageCopy = {
   pt: {
@@ -199,7 +200,7 @@ export default function HouseInventoryPage() {
                           <p className="mt-3 line-clamp-1 text-sm text-stone-600">{form.room_division || copy.allRooms}</p>
                         </div>
                         <div className="mt-5 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-t border-stone-100 pt-3 text-[11px] text-stone-500 sm:text-xs">
-                          <span className="col-span-2 min-w-0 truncate" title={`${copy.lastEditedBy}: ${form.last_edited_by_username || copy.unknownCreator} · ${formatDateTime(form.updated_at)}`}>{copy.lastEditedBy}: {form.last_edited_by_username || copy.unknownCreator} · {formatDateTime(form.updated_at)}</span>
+                          <span className="col-span-2 min-w-0 truncate" title={`${copy.lastEditedBy}: ${form.last_edited_by_username ? formatUsername(form.last_edited_by_username, language) : copy.unknownCreator} · ${formatDateTime(form.updated_at)}`}>{copy.lastEditedBy}: {form.last_edited_by_username ? formatUsername(form.last_edited_by_username, language) : copy.unknownCreator} · {formatDateTime(form.updated_at)}</span>
                           <span className="min-w-0 truncate">{form.operation_types.length ? form.operation_types.map((operation) => copy.operations[operation]).join(" · ") : copy.inventoryCount}</span>
                           <span className="whitespace-nowrap text-right">{form.lines.length} {form.lines.length === 1 ? copy.item : copy.items}</span>
                         </div>

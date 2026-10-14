@@ -12,6 +12,7 @@ import { LanguageSwitcher } from "@/components/language-switcher"
 import { AccountMenu } from "@/components/account-menu"
 import { Button } from "@/components/ui/button"
 import { createUser, deleteUser, getUsers, type AuthUser } from "@/lib/api"
+import { formatUsername } from "@/lib/display"
 
 const pageCopy = {
   en: {
@@ -128,7 +129,8 @@ export default function AdminUsersPage() {
   }
 
   async function handleDelete(target: AuthUser) {
-    if (!window.confirm(copy.deleteConfirm.replace("{username}", target.username))) return
+    const displayUsername = formatUsername(target.username, language)
+    if (!window.confirm(copy.deleteConfirm.replace("{username}", displayUsername))) return
 
     setError("")
     setSuccess("")
@@ -136,7 +138,7 @@ export default function AdminUsersPage() {
     try {
       await deleteUser(target.id)
       setUsers((current) => current.filter((user) => user.id !== target.id))
-      setSuccess(copy.deleted.replace("{username}", target.username))
+      setSuccess(copy.deleted.replace("{username}", displayUsername))
     } catch (deleteError) {
       if (axios.isAxiosError(deleteError) && deleteError.response?.status === 403) {
         setError(copy.forbidden)
@@ -216,16 +218,16 @@ export default function AdminUsersPage() {
             <ul className="mt-4 divide-y divide-stone-200 border-y border-stone-200">
               {users.map((user) => (
                 <li className="flex items-center justify-between gap-4 py-3" key={user.id}>
-                  <span className="font-medium">{user.username}</span>
+                  <span className="font-medium">{formatUsername(user.username, language)}</span>
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-stone-500">{user.is_admin ? copy.admin : copy.user}</span>
                     {user.id !== currentUser.id ? (
                       <button
-                        aria-label={`${copy.deleteLabel}: ${user.username}`}
+                        aria-label={`${copy.deleteLabel}: ${formatUsername(user.username, language)}`}
                         className="inline-flex size-8 items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-wait disabled:opacity-50"
                         disabled={deletingUserId !== null}
                         onClick={() => void handleDelete(user)}
-                        title={`${copy.deleteLabel}: ${user.username}`}
+                        title={`${copy.deleteLabel}: ${formatUsername(user.username, language)}`}
                         type="button"
                       >
                         {deletingUserId === user.id ? <SpinnerGap className="size-4 animate-spin" aria-hidden="true" /> : <Trash className="size-4" aria-hidden="true" />}
