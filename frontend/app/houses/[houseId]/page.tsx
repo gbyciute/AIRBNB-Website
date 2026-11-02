@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useParams, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { ArrowLeft, ArrowRight, CalendarBlank, CaretDown, FileText, MapPin, MagnifyingGlass, Plus, SpinnerGap, Trash, X } from "@phosphor-icons/react"
 
 import { useLanguage } from "@/components/language-provider"
@@ -29,6 +29,82 @@ const pageCopy = {
   },
 } as const
 
+function TrackingDateFilter({ label, value, language, onChange }: { label: string; value: string; language: "pt" | "en"; onChange: (value: string) => void }) {
+  const locale = language === "pt" ? "pt-PT" : "en-GB"
+  const rootRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [isOpen, setIsOpen] = useState(false)
+  const [text, setText] = useState(() => value ? value.split("-").reverse().join("/") : "")
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const selected = value ? new Date(`${value}T12:00:00`) : new Date()
+    return new Date(selected.getFullYear(), selected.getMonth(), 1)
+  })
+
+  useEffect(() => {
+    if (!isOpen) return
+    function onPointerDown(event: PointerEvent) {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setIsOpen(false)
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false)
+        inputRef.current?.focus()
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown)
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown)
+      document.removeEventListener("keydown", onKeyDown)
+    }
+  }, [isOpen])
+
+  const monthTitle = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(visibleMonth)
+  const weekdays = Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(locale, { weekday: "short" }).format(new Date(2024, 0, index + 1)))
+  const firstWeekday = (visibleMonth.getDay() + 6) % 7
+  const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate()
+  const days: Array<number | null> = [...Array.from({ length: firstWeekday }, () => null), ...Array.from({ length: daysInMonth }, (_, index) => index + 1)]
+
+  function acceptDate(isoDate: string) {
+    setText(isoDate.split("-").reverse().join("/"))
+    onChange(isoDate)
+    setIsOpen(false)
+  }
+
+  function updateText(nextText: string) {
+    setText(nextText)
+    const trimmed = nextText.trim()
+    let year = 0
+    let month = 0
+    let day = 0
+    const isoMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed)
+    const localMatch = /^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/.exec(trimmed)
+    if (isoMatch) [, year, month, day] = isoMatch.map(Number) as [number, number, number, number]
+    else if (localMatch) [, day, month, year] = localMatch.map(Number) as [number, number, number, number]
+    if (!year || !month || !day) {
+      onChange("")
+      return
+    }
+    const parsed = new Date(year, month - 1, day)
+    if (parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day) {
+      onChange(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`)
+      setVisibleMonth(new Date(year, month - 1, 1))
+    } else onChange("")
+  }
+
+  return <div className="relative min-w-0" ref={rootRef}>
+    <label className="sr-only" htmlFor="tracking-date-filter">{label}</label>
+    <div className="relative">
+      <input ref={inputRef} id="tracking-date-filter" aria-label={label} type="text" inputMode="numeric" autoComplete="off" placeholder="dd/mm/yyyy" value={text} onChange={(event) => updateText(event.target.value)} className="h-10 w-full border border-stone-300 bg-white py-2 pr-11 pl-3 text-sm text-stone-700 outline-none placeholder:text-stone-500 focus:border-stone-800" />
+      <button type="button" aria-label={label} aria-expanded={isOpen} onClick={() => { if (!isOpen) { const selected = value ? new Date(`${value}T12:00:00`) : new Date(); setVisibleMonth(new Date(selected.getFullYear(), selected.getMonth(), 1)) } setIsOpen((open) => !open) }} className="absolute top-0 right-0 flex h-10 w-10 items-center justify-center text-stone-500 hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stone-600"><CalendarBlank className="size-4" aria-hidden="true" /></button>
+    </div>
+    {isOpen ? <div role="dialog" aria-label={label} className="absolute top-full right-0 z-30 mt-1 w-64 max-w-[calc(100vw-3rem)] border border-stone-200 bg-white p-3 shadow-lg">
+      <div className="mb-2 flex items-center justify-between gap-2"><button type="button" aria-label={language === "pt" ? "Mês anterior" : "Previous month"} onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className="flex size-8 items-center justify-center text-lg text-stone-600 hover:bg-stone-100">‹</button><h3 className="text-sm font-semibold capitalize text-stone-800">{monthTitle}</h3><button type="button" aria-label={language === "pt" ? "Mês seguinte" : "Next month"} onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className="flex size-8 items-center justify-center text-lg text-stone-600 hover:bg-stone-100">›</button></div>
+      <div className="grid grid-cols-7 text-center">{weekdays.map((weekday, index) => <span key={`${weekday}-${index}`} className="py-1 text-[10px] font-semibold uppercase text-stone-500">{weekday}</span>)}{days.map((day, index) => day === null ? <span key={`blank-${index}`} /> : <button key={day} type="button" aria-pressed={value === `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`} onClick={() => acceptDate(`${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`)} className={`mx-auto flex size-8 items-center justify-center rounded-full text-xs transition hover:bg-stone-100 ${value === `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}` ? "bg-stone-900 font-semibold text-white hover:bg-stone-700" : "text-stone-700"}`}>{day}</button>)}</div>
+    </div> : null}
+  </div>
+}
+
 export default function HouseInventoryPage() {
   const { language } = useLanguage()
   const copy = pageCopy[language]
@@ -44,6 +120,7 @@ export default function HouseInventoryPage() {
   const [historySearch, setHistorySearch] = useState("")
   const [operationFilter, setOperationFilter] = useState("")
   const [dateFilter, setDateFilter] = useState("")
+  const [dateFilterResetToken, setDateFilterResetToken] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   const [formToDelete, setFormToDelete] = useState<InventoryForm | null>(null)
@@ -166,10 +243,7 @@ export default function HouseInventoryPage() {
                     </select>
                     <CaretDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-stone-600" aria-hidden="true" />
                   </label>
-                  <label className="relative">
-                    <span className="sr-only">{copy.filterDate}</span>
-                    <input aria-label={copy.filterDate} type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-10 w-full border border-stone-300 bg-white px-3 text-sm text-stone-700 outline-none focus:border-stone-800" />
-                  </label>
+                  <TrackingDateFilter key={dateFilterResetToken} label={copy.filterDate} value={dateFilter} language={language} onChange={setDateFilter} />
                 </div>
               )}
 
@@ -185,7 +259,7 @@ export default function HouseInventoryPage() {
               ) : filteredForms.length === 0 ? (
                 <div className="mt-5 flex min-h-32 flex-col items-center justify-center border border-dashed border-stone-300 bg-white px-5 py-8 text-center">
                   <p className="text-sm text-stone-600">{copy.noFilteredSheets}</p>
-                  <button type="button" onClick={() => { setHistorySearch(""); setOperationFilter(""); setDateFilter("") }} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-stone-800 underline underline-offset-4 hover:text-stone-600"><X className="size-4" aria-hidden="true" />{copy.clearFilters}</button>
+                  <button type="button" onClick={() => { setHistorySearch(""); setOperationFilter(""); setDateFilter(""); setDateFilterResetToken((current) => current + 1) }} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-stone-800 underline underline-offset-4 hover:text-stone-600"><X className="size-4" aria-hidden="true" />{copy.clearFilters}</button>
                 </div>
               ) : (
                 <div className="mt-5 grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">

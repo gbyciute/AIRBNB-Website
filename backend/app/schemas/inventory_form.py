@@ -50,6 +50,15 @@ class InventoryFormUpdate(InventoryFormCreate):
     pass
 
 
+class InventoryFormPhotoRead(BaseModel):
+    id: int
+    content_type: str
+    size_bytes: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class InventoryFormRead(InventoryFormCreate):
     id: int
     house_id: int
@@ -58,5 +67,6 @@ class InventoryFormRead(InventoryFormCreate):
     created_by_username: Optional[str] = None
     last_edited_by_username: Optional[str] = None
     lines: list[InventoryFormLineRead]
+    photos: list[InventoryFormPhotoRead] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)

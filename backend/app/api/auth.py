@@ -18,7 +18,7 @@ from app.core.config import settings
 from app.core.passwords import hash_password, verify_password
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import LoginRequest, UserCreate, UserRead
+from app.schemas.auth import LoginRequest, UserCreate, UserProfileUpdate, UserRead
 
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -81,6 +81,25 @@ def create_user(data: UserCreate, current_user: CurrentUser, db: DatabaseSession
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already exists") from error
+    db.refresh(user)
+    return user
+
+
+@router.patch("/users/{user_id}/profile", response_model=UserRead)
+def update_user_profile(
+    user_id: int,
+    data: UserProfileUpdate,
+    current_user: CurrentUser,
+    db: DatabaseSession,
+) -> User:
+    if not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    user.display_name = data.display_name or None
+    user.calendar_color = data.calendar_color
+    db.commit()
     db.refresh(user)
     return user
 

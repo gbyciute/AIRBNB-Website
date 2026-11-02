@@ -1,6 +1,10 @@
 """Request and response schemas for login and user administration."""
 
+from __future__ import annotations
+
 import re
+
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -36,5 +40,17 @@ class UserRead(BaseModel):
     username: str
     is_admin: bool
     is_active: bool
+    display_name: Optional[str] = None
+    calendar_color: str = "emerald"
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserProfileUpdate(BaseModel):
+    display_name: str = Field(max_length=64)
+    calendar_color: Literal["emerald", "blue", "violet", "amber", "rose", "teal"]
+
+    @field_validator("display_name")
+    @classmethod
+    def clean_display_name(cls, value: str) -> str:
+        return value.strip()

@@ -2,3 +2,4 @@
 backend/.env
 backend/airbnb_local.db
 backend/airbnb_local.db-*
+backend/.uploads/

@@ -130,3 +130,57 @@
     @apply font-sans;
     }
 }
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .working-hours-page {
+    min-height: 0 !important;
+    background: #fff !important;
+    padding: 0 !important;
+  }
+
+  .working-hours-page > div {
+    max-width: none !important;
+    min-height: 0 !important;
+    border: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .print-hide,
+  .screen-entry-list {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .working-hours-report {
+    margin-top: 12px !important;
+    border: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .print-only table {
+    font-size: 9px;
+  }
+
+  .print-only thead {
+    display: table-header-group;
+  }
+
+  .print-only tr {
+    break-inside: avoid;
+  }
+}

@@ -11,7 +11,7 @@ import { useLanguage } from "@/components/language-provider"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { AccountMenu } from "@/components/account-menu"
 import { Button } from "@/components/ui/button"
-import { createUser, deleteUser, getUsers, type AuthUser } from "@/lib/api"
+import { createUser, deleteUser, getUsers, updateUserProfile, type AuthUser, type WorkingHourColor } from "@/lib/api"
 import { formatUsername } from "@/lib/display"
 
 const pageCopy = {
@@ -37,6 +37,13 @@ const pageCopy = {
     deleteConfirm: "Delete the account for {username}? This cannot be undone.",
     deleted: "Account for {username} deleted.",
     deleteError: "Could not delete that account. Please try again.",
+    displayName: "Display name",
+    calendarColor: "Calendar color",
+    saveProfile: "Save profile",
+    savingProfile: "Saving…",
+    profileSaved: "Employee details saved.",
+    profileError: "Could not save employee details. Please try again.",
+    colors: { emerald: "Green", blue: "Blue", violet: "Purple", amber: "Amber", rose: "Rose", teal: "Teal" },
   },
   pt: {
     back: "Voltar às casas",
@@ -60,8 +67,17 @@ const pageCopy = {
     deleteConfirm: "Eliminar a conta de {username}? Esta ação não pode ser anulada.",
     deleted: "A conta de {username} foi eliminada.",
     deleteError: "Não foi possível eliminar essa conta. Tente novamente.",
+    displayName: "Nome apresentado",
+    calendarColor: "Cor no calendário",
+    saveProfile: "Guardar perfil",
+    savingProfile: "A guardar…",
+    profileSaved: "Dados do colaborador guardados.",
+    profileError: "Não foi possível guardar os dados do colaborador. Tente novamente.",
+    colors: { emerald: "Verde", blue: "Azul", violet: "Roxo", amber: "Âmbar", rose: "Rosa", teal: "Turquesa" },
   },
 } as const
+
+const profileColorOptions: WorkingHourColor[] = ["emerald", "blue", "violet", "amber", "rose", "teal"]
 
 export default function AdminUsersPage() {
   const { language } = useLanguage()
@@ -77,6 +93,8 @@ export default function AdminUsersPage() {
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [profileDrafts, setProfileDrafts] = useState<Record<number, { display_name: string; calendar_color: WorkingHourColor }>>({})
+  const [savingProfileId, setSavingProfileId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!currentUser.is_admin) {
@@ -89,6 +107,10 @@ export default function AdminUsersPage() {
       .then((loadedUsers) => {
         if (active) {
           setUsers(loadedUsers)
+          setProfileDrafts(Object.fromEntries(loadedUsers.map((loadedUser) => [loadedUser.id, {
+            display_name: loadedUser.display_name ?? "",
+            calendar_color: (loadedUser.calendar_color || "emerald") as WorkingHourColor,
+          }])))
           setIsAdmin(true)
         }
       })
@@ -112,6 +134,7 @@ export default function AdminUsersPage() {
     try {
       const newUser = await createUser(username, password)
       setUsers((current) => [...current, newUser].sort((left, right) => left.username.localeCompare(right.username)))
+      setProfileDrafts((current) => ({ ...current, [newUser.id]: { display_name: newUser.display_name ?? "", calendar_color: (newUser.calendar_color || "emerald") as WorkingHourColor } }))
       setUsername("")
       setPassword("")
       setSuccess(copy.created)
@@ -147,6 +170,23 @@ export default function AdminUsersPage() {
       }
     } finally {
       setDeletingUserId(null)
+    }
+  }
+
+  async function handleSaveProfile(target: AuthUser) {
+    const profile = profileDrafts[target.id]
+    if (!profile) return
+    setError("")
+    setSuccess("")
+    setSavingProfileId(target.id)
+    try {
+      const updated = await updateUserProfile(target.id, profile)
+      setUsers((current) => current.map((item) => item.id === updated.id ? updated : item))
+      setSuccess(copy.profileSaved)
+    } catch {
+      setError(copy.profileError)
+    } finally {
+      setSavingProfileId(null)
     }
   }
 
@@ -217,23 +257,30 @@ export default function AdminUsersPage() {
           ) : (
             <ul className="mt-4 divide-y divide-stone-200 border-y border-stone-200">
               {users.map((user) => (
-                <li className="flex items-center justify-between gap-4 py-3" key={user.id}>
-                  <span className="font-medium">{formatUsername(user.username, language)}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-stone-500">{user.is_admin ? copy.admin : copy.user}</span>
-                    {user.id !== currentUser.id ? (
-                      <button
-                        aria-label={`${copy.deleteLabel}: ${formatUsername(user.username, language)}`}
-                        className="inline-flex size-8 items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-wait disabled:opacity-50"
-                        disabled={deletingUserId !== null}
-                        onClick={() => void handleDelete(user)}
-                        title={`${copy.deleteLabel}: ${formatUsername(user.username, language)}`}
-                        type="button"
-                      >
-                        {deletingUserId === user.id ? <SpinnerGap className="size-4 animate-spin" aria-hidden="true" /> : <Trash className="size-4" aria-hidden="true" />}
-                      </button>
-                    ) : null}
+                <li className="py-3" key={user.id}>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="font-medium">{formatUsername(user.display_name || user.username, language)}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-stone-500">{user.is_admin ? copy.admin : copy.user}</span>
+                      {user.id !== currentUser.id ? (
+                        <button
+                          aria-label={`${copy.deleteLabel}: ${formatUsername(user.username, language)}`}
+                          className="inline-flex size-8 items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-wait disabled:opacity-50"
+                          disabled={deletingUserId !== null}
+                          onClick={() => void handleDelete(user)}
+                          title={`${copy.deleteLabel}: ${formatUsername(user.username, language)}`}
+                          type="button"
+                        >
+                          {deletingUserId === user.id ? <SpinnerGap className="size-4 animate-spin" aria-hidden="true" /> : <Trash className="size-4" aria-hidden="true" />}
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
+                  {!user.is_admin ? <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_auto] sm:items-end">
+                    <label className="block text-xs font-medium text-stone-600">{copy.displayName}<input className="mt-1 block h-9 w-full border border-stone-300 bg-white px-2.5 text-sm font-normal text-stone-800" maxLength={64} value={profileDrafts[user.id]?.display_name ?? ""} onChange={(event) => setProfileDrafts((current) => ({ ...current, [user.id]: { display_name: event.target.value, calendar_color: current[user.id]?.calendar_color ?? "emerald" } }))} /></label>
+                    <label className="block text-xs font-medium text-stone-600">{copy.calendarColor}<select className="mt-1 block h-9 w-full border border-stone-300 bg-white px-2 text-sm font-normal text-stone-800" value={profileDrafts[user.id]?.calendar_color ?? "emerald"} onChange={(event) => setProfileDrafts((current) => ({ ...current, [user.id]: { display_name: current[user.id]?.display_name ?? "", calendar_color: event.target.value as WorkingHourColor } }))}>{profileColorOptions.map((color) => <option key={color} value={color}>{copy.colors[color]}</option>)}</select></label>
+                    <Button className="h-9 px-3 text-xs" disabled={savingProfileId !== null} onClick={() => void handleSaveProfile(user)} type="button">{savingProfileId === user.id ? copy.savingProfile : copy.saveProfile}</Button>
+                  </div> : null}
                 </li>
               ))}
             </ul>

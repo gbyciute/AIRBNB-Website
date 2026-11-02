@@ -8,7 +8,10 @@ authors = [
 requires-python = ">=3.9"
 dependencies = [
     "alembic>=1.14.0",
+    "boto3>=1.42.97",
     "fastapi[standard]>=0.128.8",
+    "pillow>=11.3.0",
+    "pillow-heif>=1.1.1",
     "psycopg[binary]>=3.2.0",
     "python-dotenv>=1.0.0",
     "reportlab>=4.0.0",

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -19,3 +20,8 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    display_name: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    calendar_color: Mapped[str] = mapped_column(String(20), nullable=False, default="emerald", server_default="emerald")
+    working_hours: Mapped[list["WorkingHour"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+    )

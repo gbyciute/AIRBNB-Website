@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.houses import router as houses_router
 from app.api.auth import router as auth_router
 from app.api.inventory_forms import house_inventory_router, inventory_router
+from app.api.working_hours import router as working_hours_router
 from app.core.config import settings
 
 
@@ -23,6 +24,7 @@ app.include_router(houses_router)
 app.include_router(auth_router)
 app.include_router(house_inventory_router)
 app.include_router(inventory_router)
+app.include_router(working_hours_router)
 
 
 @app.get("/")

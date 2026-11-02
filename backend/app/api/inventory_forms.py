@@ -1,8 +1,9 @@
 """Inventory tracking sheet endpoints."""
 
 from typing import Annotated, Literal
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Form, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -10,9 +11,10 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.auth import CurrentUser, require_authenticated
 from app.db.session import get_db
 from app.models.house import House
-from app.models.inventory_form import InventoryForm, InventoryFormLine
-from app.schemas.inventory_form import InventoryFormCreate, InventoryFormRead, InventoryFormUpdate
+from app.models.inventory_form import InventoryForm, InventoryFormLine, InventoryFormPhoto
+from app.schemas.inventory_form import InventoryFormCreate, InventoryFormPhotoRead, InventoryFormRead, InventoryFormUpdate
 from app.services.inventory_pdf import build_inventory_pdf
+from app.services.photo_storage import PhotoStorageNotConfigured, delete_photo, optimize_photo, put_photo, read_photo
 
 
 house_inventory_router = APIRouter(
@@ -22,6 +24,8 @@ inventory_router = APIRouter(
     prefix="/inventory-forms", tags=["inventory forms"], dependencies=[Depends(require_authenticated)]
 )
 DatabaseSession = Annotated[Session, Depends(get_db)]
+MAX_PHOTO_BYTES = 12 * 1024 * 1024
+MAX_PHOTOS_PER_FORM = 12
 
 
 def _not_found() -> HTTPException:
@@ -35,6 +39,7 @@ def _load_form(db: Session, form_id: int) -> InventoryForm:
             selectinload(InventoryForm.lines),
             selectinload(InventoryForm.created_by),
             selectinload(InventoryForm.last_edited_by),
+            selectinload(InventoryForm.photos),
         )
         .where(InventoryForm.id == form_id)
     )
@@ -62,6 +67,7 @@ def list_inventory_forms(house_id: int, db: DatabaseSession) -> list[InventoryFo
             selectinload(InventoryForm.lines),
             selectinload(InventoryForm.created_by),
             selectinload(InventoryForm.last_edited_by),
+            selectinload(InventoryForm.photos),
         )
         .where(InventoryForm.house_id == house_id)
         .order_by(InventoryForm.count_date.desc(), InventoryForm.id.desc())
@@ -167,12 +173,93 @@ def update_inventory_form(
     return _load_form(db, form_id)
 
 
+@inventory_router.post("/{form_id}/photos", response_model=InventoryFormPhotoRead, status_code=status.HTTP_201_CREATED)
+async def upload_inventory_form_photo(
+    form_id: int,
+    db: DatabaseSession,
+    file: Annotated[UploadFile, File()],
+) -> InventoryFormPhoto:
+    """Validate, optimize, and attach one image to a tracking sheet."""
+    form = _load_form(db, form_id)
+    if len(form.photos) >= MAX_PHOTOS_PER_FORM:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"A tracking sheet can have at most {MAX_PHOTOS_PER_FORM} photos")
+
+    source = await file.read(MAX_PHOTO_BYTES + 1)
+    await file.close()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Choose an image first")
+    if len(source) > MAX_PHOTO_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Each photo must be 12 MB or smaller")
+    try:
+        optimized = optimize_photo(source)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+
+    object_key = f"inventory/{form_id}/{uuid4().hex}.webp"
+    try:
+        put_photo(object_key, optimized, "image/webp")
+    except PhotoStorageNotConfigured as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Photo storage is not configured") from error
+    except Exception as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Could not store the photo") from error
+
+    photo = InventoryFormPhoto(form_id=form_id, object_key=object_key, content_type="image/webp", size_bytes=len(optimized))
+    db.add(photo)
+    try:
+        db.commit()
+        db.refresh(photo)
+    except Exception:
+        db.rollback()
+        delete_photo(object_key)
+        raise
+    return photo
+
+
+@inventory_router.get("/{form_id}/photos/{photo_id}")
+def get_inventory_form_photo(form_id: int, photo_id: int, db: DatabaseSession) -> Response:
+    """Serve a private photo only to signed-in application users."""
+    photo = db.scalar(select(InventoryFormPhoto).where(InventoryFormPhoto.id == photo_id, InventoryFormPhoto.form_id == form_id))
+    if photo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found")
+    try:
+        image = read_photo(photo.object_key)
+    except PhotoStorageNotConfigured as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Photo storage is not configured") from error
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo file not found") from error
+    except Exception as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Could not load the photo") from error
+    return Response(content=image, media_type=photo.content_type, headers={"Cache-Control": "private, max-age=300"})
+
+
+@inventory_router.delete("/{form_id}/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_inventory_form_photo(form_id: int, photo_id: int, db: DatabaseSession) -> None:
+    photo = db.scalar(select(InventoryFormPhoto).where(InventoryFormPhoto.id == photo_id, InventoryFormPhoto.form_id == form_id))
+    if photo is None:
+        raise _not_found()
+    try:
+        delete_photo(photo.object_key)
+    except PhotoStorageNotConfigured as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Photo storage is not configured") from error
+    except Exception as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Could not remove the photo") from error
+    db.delete(photo)
+    db.commit()
+
+
 @inventory_router.delete("/{form_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_inventory_form(form_id: int, db: DatabaseSession) -> None:
     """Delete a tracking sheet and its associated item rows."""
-    form = db.get(InventoryForm, form_id)
+    form = _load_form(db, form_id)
     if form is None:
         raise _not_found()
 
+    try:
+        for photo in form.photos:
+            delete_photo(photo.object_key)
+    except PhotoStorageNotConfigured as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Photo storage is not configured") from error
+    except Exception as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Could not remove this sheet’s photos") from error
     db.delete(form)
     db.commit()

@@ -45,6 +45,12 @@ class InventoryForm(Base):
         passive_deletes=True,
         order_by="InventoryFormLine.sort_order",
     )
+    photos: Mapped[list["InventoryFormPhoto"]] = relationship(
+        back_populates="inventory_form",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="InventoryFormPhoto.created_at",
+    )
 
     @property
     def created_by_username(self) -> Optional[str]:
@@ -72,3 +78,18 @@ class InventoryFormLine(Base):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     inventory_form: Mapped[InventoryForm] = relationship(back_populates="lines")
+
+
+class InventoryFormPhoto(Base):
+    __tablename__ = "inventory_form_photos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    form_id: Mapped[int] = mapped_column(
+        ForeignKey("inventory_forms.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    object_key: Mapped[str] = mapped_column(String(512), nullable=False, unique=True)
+    content_type: Mapped[str] = mapped_column(String(64), nullable=False, default="image/webp")
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    inventory_form: Mapped[InventoryForm] = relationship(back_populates="photos")

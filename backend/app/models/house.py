@@ -18,3 +18,6 @@ class House(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    working_hours: Mapped[list["WorkingHour"]] = relationship(
+        back_populates="house", cascade="all, delete-orphan", passive_deletes=True
+    )

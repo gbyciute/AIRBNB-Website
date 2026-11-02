@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { FormEvent, useEffect, useRef, useState } from "react"
-import { ArrowLeft, CaretDown, DownloadSimple, Plus, Printer, SpinnerGap, Trash } from "@phosphor-icons/react"
+import { ArrowLeft, Camera, CaretDown, DownloadSimple, FloppyDisk, ImageSquare, Plus, Printer, SpinnerGap, Trash, X } from "@phosphor-icons/react"
 
 import { useLanguage } from "@/components/language-provider"
 import { useAuth } from "@/components/auth-context"
@@ -16,12 +17,16 @@ import {
   getHouse,
   getInventoryForm,
   getInventoryForms,
+  deleteInventoryFormPhoto,
+  uploadInventoryFormPhoto,
+  inventoryFormPhotoUrl,
   updateInventoryForm,
   type House,
   type InventoryCategory,
   type InventoryForm,
   type InventoryFormInput,
   type InventoryFormLineInput,
+  type InventoryFormPhoto,
   type InventoryOperation,
 } from "@/lib/api"
 import { createTemplateLines, inventoryCategories, translateInventoryDescription } from "@/lib/inventory"
@@ -30,6 +35,7 @@ type EditableLine = InventoryFormLineInput & { clientKey: string }
 type FormDetails = Omit<InventoryFormInput, "lines">
 type EditableField = "stock_total" | "current_quantity" | "outgoing_laundry" | "incoming_clean"
 type DraftStatus = "clean" | "saving" | "saved" | "restored"
+type PendingPhoto = { clientKey: string; file: File; previewUrl: string }
 
 const editorCopy = {
   pt: {
@@ -44,6 +50,7 @@ const editorCopy = {
     item: "item", items: "itens", itemDescription: "Descrição do item", deleteItem: "Eliminar", condition: "Estado / observações", conditionPlaceholder: "Estado / notas (opcional)", noItems: "Ainda não existem itens nesta categoria.", noItemsDesktop: "Sem itens nesta categoria. Use “Adicionar linha” para criar um.", addLine: "Adicionar linha", removeItem: "Eliminar item",
     noticeTitle: "Atenção ao rastreio:", noticeMobile: "Registe em “Estado / Observações” peças em falta, danificadas ou manchadas. Comunique de imediato diferenças entre a saída e o retorno da lavandaria.", noticeDesktop: "Em caso de falta de mudas completas ou peças danificadas/manchadas, anotar obrigatoriamente na coluna “Estado / Observações”. Qualquer divergência entre a saída para lavandaria e o retorno deve ser comunicada de imediato.",
     validation: "Validação & responsabilidade do rastreio", countedBy: "Contagem feita por (nome)", signature: "Assinatura do responsável", checkedBy: "Conferido por (lavandaria / gov.)",
+    photosHeading: "Fotografias", photosHelp: "Tire uma fotografia agora ou escolha imagens da galeria. As fotografias ficam privadas e associadas a esta ficha.", takePhoto: "Tirar fotografia", choosePhotos: "Escolher da galeria", photoAlt: "Fotografia da ficha", viewFullPhoto: "Ver fotografia em tamanho completo", closePhoto: "Fechar fotografia", removePhoto: "Remover fotografia", restorePhoto: "Manter fotografia", noPhotos: "Ainda não existem fotografias nesta ficha.", photosCount: "fotografias", photoSingular: "fotografia", savePhotos: "Guardar fotografias", saveSheetAndPhotos: "Guardar ficha e fotografias", savePhotosHelp: "Guarde as fotografias selecionadas nesta ficha.", photosSaved: "Fotografias guardadas.", photosPending: "Fotografias por guardar", photoSaveError: "A ficha foi guardada, mas não foi possível guardar todas as fotografias. Tente novamente.", photoTypeError: "Escolha uma imagem JPEG, PNG, WebP ou HEIC.", photoSizeError: "Cada fotografia tem de ter 12 MB ou menos.", photoLimitError: "Pode adicionar até 12 fotografias por ficha.",
     draftSaving: "A guardar rascunho…", draftSaved: "Rascunho guardado localmente", draftRestored: "Rascunho recuperado", noUnsaved: "Sem alterações por guardar", unsavedConfirm: "Existem alterações que ainda não foram guardadas na base de dados. Pretende sair mesmo assim?",
   },
   en: {
@@ -58,6 +65,7 @@ const editorCopy = {
     item: "item", items: "items", itemDescription: "Item description", deleteItem: "Delete", condition: "Condition / notes", conditionPlaceholder: "Condition / notes (optional)", noItems: "No items in this category yet.", noItemsDesktop: "No items in this category. Use “Add line” to create one.", addLine: "Add line", removeItem: "Remove item",
     noticeTitle: "Tracking notice:", noticeMobile: "Record missing, damaged, or stained items under “Condition / Notes”. Report differences between laundry items sent and returned immediately.", noticeDesktop: "If complete linen sets are missing, or if any items are damaged or stained, record this under “Condition / Notes”. Any difference between the items sent to the laundry and those returned must be reported immediately.",
     validation: "Tracking validation & responsibility", countedBy: "Counted by (name)", signature: "Responsible person’s signature", checkedBy: "Checked by (laundry / housekeeping)",
+    photosHeading: "Photos", photosHelp: "Take a photo now or choose images from your gallery. Photos stay private and are attached to this sheet.", takePhoto: "Take a photo", choosePhotos: "Choose from gallery", photoAlt: "Tracking-sheet photo", viewFullPhoto: "View full-size photo", closePhoto: "Close photo", removePhoto: "Remove photo", restorePhoto: "Keep photo", noPhotos: "No photos attached to this sheet yet.", photosCount: "photos", photoSingular: "photo", savePhotos: "Save photos", saveSheetAndPhotos: "Save sheet and photos", savePhotosHelp: "Save your selected photos to this sheet.", photosSaved: "Photos saved.", photosPending: "Photos waiting to be saved", photoSaveError: "The sheet was saved, but some photos could not be uploaded. Please try again.", photoTypeError: "Choose a JPEG, PNG, WebP, or HEIC image.", photoSizeError: "Each photo must be 12 MB or smaller.", photoLimitError: "You can add up to 12 photos per sheet.",
     draftSaving: "Saving draft…", draftSaved: "Draft saved locally", draftRestored: "Draft restored", noUnsaved: "No unsaved changes", unsavedConfirm: "You have changes that have not been saved to the database. Are you sure you want to leave?",
   },
 } as const
@@ -128,7 +136,14 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
   const [lines, setLines] = useState<EditableLine[]>(() =>
     createTemplateLines().map((line, index) => ({ ...line, clientKey: `template-${index}` }))
   )
+  const [existingPhotos, setExistingPhotos] = useState<InventoryFormPhoto[]>([])
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([])
+  const [photosToDelete, setPhotosToDelete] = useState<number[]>([])
+  const [createdFormId, setCreatedFormId] = useState<number | null>(null)
   const [expandedCategory, setExpandedCategory] = useState<InventoryCategory | null>(null)
+  const [expandedPhotos, setExpandedPhotos] = useState(false)
+  const [photoSavedNotice, setPhotoSavedNotice] = useState<string | null>(null)
+  const [fullPhoto, setFullPhoto] = useState<{ src: string; alt: string } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
@@ -139,9 +154,25 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
   const suppressWarningRef = useRef(false)
   const restoringHistoryRef = useRef(false)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
+  const previewUrlsRef = useRef<Set<string>>(new Set())
   const copyRef = useRef(copy)
   const currentSnapshot = formSnapshot(details, lines)
-  const hasUnsavedChanges = !isLoading && baselineSnapshot !== "" && currentSnapshot !== baselineSnapshot
+  const hasUnsavedFormChanges = !isLoading && baselineSnapshot !== "" && currentSnapshot !== baselineSnapshot
+  const hasPendingPhotoChanges = pendingPhotos.length > 0 || photosToDelete.length > 0
+  const hasUnsavedChanges = hasUnsavedFormChanges || (!isLoading && hasPendingPhotoChanges)
+
+  useEffect(() => () => previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url)), [])
+
+  useEffect(() => {
+    if (!fullPhoto) return
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setFullPhoto(null)
+    }
+    window.addEventListener("keydown", closeOnEscape)
+    return () => window.removeEventListener("keydown", closeOnEscape)
+  }, [fullPhoto])
 
   useEffect(() => {
     copyRef.current = copy
@@ -167,6 +198,7 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
         }
 
         setHouse(loadedHouse)
+        setExistingPhotos(formId === undefined ? [] : loadedForm?.photos ?? [])
         const loadedDetails: FormDetails = loadedForm
           ? {
             count_date: formId === undefined ? localToday() : loadedForm.count_date,
@@ -233,7 +265,7 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
   useEffect(() => {
     if (isLoading || !baselineSnapshot) return
 
-    if (!hasUnsavedChanges) {
+    if (!hasUnsavedFormChanges) {
       window.localStorage.removeItem(draftKey)
       return
     }
@@ -250,7 +282,7 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
       window.clearTimeout(savingTimeout)
       window.clearTimeout(saveTimeout)
     }
-  }, [baselineSnapshot, details, draftKey, hasUnsavedChanges, isLoading, lines])
+  }, [baselineSnapshot, details, draftKey, hasUnsavedFormChanges, isLoading, lines])
 
   useEffect(() => {
     function warnBeforeUnload(event: BeforeUnloadEvent) {
@@ -326,6 +358,76 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
     setLines((current) => current.filter((line) => line.clientKey !== clientKey))
   }
 
+  function addPhotos(fileList: FileList | null) {
+    if (!fileList?.length) return
+    setError(null)
+    setPhotoSavedNotice(null)
+    const alreadyAttached = existingPhotos.length - photosToDelete.length + pendingPhotos.length
+    let availableSlots = Math.max(0, 12 - alreadyAttached)
+    const accepted: PendingPhoto[] = []
+    for (const file of Array.from(fileList)) {
+      if (!file.type || !["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(file.type.toLowerCase())) {
+        setError(copy.photoTypeError)
+        continue
+      }
+      if (file.size > 12 * 1024 * 1024) {
+        setError(copy.photoSizeError)
+        continue
+      }
+      if (availableSlots <= 0) {
+        setError(copy.photoLimitError)
+        break
+      }
+      const previewUrl = URL.createObjectURL(file)
+      previewUrlsRef.current.add(previewUrl)
+      accepted.push({ clientKey: lineKey(), file, previewUrl })
+      availableSlots -= 1
+    }
+    if (accepted.length) {
+      setPendingPhotos((current) => [...current, ...accepted])
+      setExpandedPhotos(true)
+    }
+  }
+
+  function removePendingPhoto(photo: PendingPhoto) {
+    URL.revokeObjectURL(photo.previewUrl)
+    previewUrlsRef.current.delete(photo.previewUrl)
+    setPendingPhotos((current) => current.filter((item) => item.clientKey !== photo.clientKey))
+  }
+
+  function togglePhotoRemoval(photoId: number) {
+    setPhotoSavedNotice(null)
+    setPhotosToDelete((current) => current.includes(photoId) ? current.filter((id) => id !== photoId) : [...current, photoId])
+  }
+
+  async function savePhotoChanges() {
+    const savedFormId = formId ?? createdFormId
+    if (savedFormId === null) return
+
+    setIsSaving(true)
+    setError(null)
+    setPhotoSavedNotice(null)
+    try {
+      for (const photoId of photosToDelete) {
+        await deleteInventoryFormPhoto(savedFormId, photoId)
+        setExistingPhotos((current) => current.filter((photo) => photo.id !== photoId))
+        setPhotosToDelete((current) => current.filter((id) => id !== photoId))
+      }
+      for (const photo of pendingPhotos) {
+        const savedPhoto = await uploadInventoryFormPhoto(savedFormId, photo.file)
+        setExistingPhotos((current) => [...current, savedPhoto])
+        setPendingPhotos((current) => current.filter((item) => item.clientKey !== photo.clientKey))
+        URL.revokeObjectURL(photo.previewUrl)
+        previewUrlsRef.current.delete(photo.previewUrl)
+      }
+      setPhotoSavedNotice(copy.photosSaved)
+    } catch {
+      setError(copy.photoSaveError)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   async function handleDownloadPdf() {
     setIsDownloadingPdf(true)
     setError(null)
@@ -373,12 +475,41 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
       })),
     }
 
+    let savedFormId = formId ?? createdFormId
     try {
-      if (formId === undefined) {
-        await createInventoryForm(houseId, input)
+      if (savedFormId === null) {
+        const savedForm = await createInventoryForm(houseId, input)
+        savedFormId = savedForm.id
+        setCreatedFormId(savedForm.id)
       } else {
-        await updateInventoryForm(formId, input)
+        await updateInventoryForm(savedFormId, input)
       }
+    } catch {
+      setError(copy.saveError)
+      setIsSaving(false)
+      return
+    }
+
+    try {
+      for (const photoId of photosToDelete) {
+        await deleteInventoryFormPhoto(savedFormId, photoId)
+        setExistingPhotos((current) => current.filter((photo) => photo.id !== photoId))
+        setPhotosToDelete((current) => current.filter((id) => id !== photoId))
+      }
+      for (const photo of pendingPhotos) {
+        const savedPhoto = await uploadInventoryFormPhoto(savedFormId, photo.file)
+        setExistingPhotos((current) => [...current, savedPhoto])
+        setPendingPhotos((current) => current.filter((item) => item.clientKey !== photo.clientKey))
+        URL.revokeObjectURL(photo.previewUrl)
+        previewUrlsRef.current.delete(photo.previewUrl)
+      }
+    } catch {
+      setError(copy.photoSaveError)
+      setIsSaving(false)
+      return
+    }
+
+    try {
       suppressWarningRef.current = true
       window.localStorage.removeItem(draftKey)
       setBaselineSnapshot(currentSnapshot)
@@ -394,7 +525,9 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
   const draftTime = draftSavedAt
     ? new Intl.DateTimeFormat(language === "pt" ? "pt-PT" : "en-GB", { hour: "2-digit", minute: "2-digit" }).format(new Date(draftSavedAt))
     : null
-  const draftMessage = !hasUnsavedChanges
+  const draftMessage = !hasUnsavedFormChanges && hasPendingPhotoChanges
+    ? copy.photosPending
+    : !hasUnsavedChanges
     ? copy.noUnsaved
     : draftStatus === "saving"
     ? copy.draftSaving
@@ -600,6 +733,63 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
             )
           })}
 
+          <section aria-label={`5. ${copy.photosHeading}`}>
+            <h2>
+              <button
+                type="button"
+                id="tracking-photos-trigger"
+                aria-expanded={expandedPhotos}
+                aria-controls="tracking-photos-panel"
+                onClick={() => setExpandedPhotos((expanded) => !expanded)}
+                className="flex min-h-14 w-full items-center gap-3 border-l-[6px] border-[#244488] bg-[#e0e7ff] px-3 py-2 text-left transition-colors hover:bg-[#d7e0ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#244488]"
+              >
+                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-[#244488] text-sm font-bold text-white">5</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold tracking-wide text-[#26417f]">{copy.photosHeading}</span>
+                  <span className="mt-0.5 block text-xs font-medium text-slate-600">{existingPhotos.length - photosToDelete.length + pendingPhotos.length} {existingPhotos.length - photosToDelete.length + pendingPhotos.length === 1 ? copy.photoSingular : copy.photosCount}</span>
+                </span>
+                <CaretDown className={`size-5 shrink-0 text-[#244488] transition-transform ${expandedPhotos ? "rotate-180" : ""}`} aria-hidden="true" />
+              </button>
+            </h2>
+            <div id="tracking-photos-panel" role="region" aria-labelledby="tracking-photos-trigger" hidden={!expandedPhotos} className="space-y-4 border-x border-b border-slate-200 bg-slate-50 p-3 sm:p-4">
+              <p className="text-xs leading-5 text-stone-600">{copy.photosHelp}</p>
+              <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event) => { addPhotos(event.target.files); event.target.value = "" }} aria-label={copy.takePhoto} />
+              <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" multiple onChange={(event) => { addPhotos(event.target.files); event.target.value = "" }} aria-label={copy.choosePhotos} />
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => cameraInputRef.current?.click()} disabled={existingPhotos.length - photosToDelete.length + pendingPhotos.length >= 12} className="inline-flex min-h-11 w-full min-w-0 items-center justify-center gap-2 border border-stone-300 bg-white px-2 py-2 text-xs font-medium text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"><Camera className="size-4 shrink-0" aria-hidden="true" /><span className="min-w-0 text-center leading-tight">{copy.takePhoto}</span></button>
+                <button type="button" onClick={() => galleryInputRef.current?.click()} disabled={existingPhotos.length - photosToDelete.length + pendingPhotos.length >= 12} className="inline-flex min-h-11 w-full min-w-0 items-center justify-center gap-2 border border-stone-300 bg-white px-2 py-2 text-xs font-medium text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"><ImageSquare className="size-4 shrink-0" aria-hidden="true" /><span className="min-w-0 text-center leading-tight">{copy.choosePhotos}</span></button>
+              </div>
+              {existingPhotos.length || pendingPhotos.length ? <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-6">
+                {existingPhotos.map((photo) => {
+                  const willDelete = photosToDelete.includes(photo.id)
+                  const photoUrl = inventoryFormPhotoUrl(formId ?? createdFormId ?? 0, photo.id)
+                  return <div key={`saved-${photo.id}`} className={`relative aspect-[4/3] overflow-hidden border border-stone-200 bg-stone-100 ${willDelete ? "opacity-50" : ""}`}>
+                    <button type="button" onClick={() => setFullPhoto({ src: photoUrl, alt: copy.photoAlt })} aria-label={copy.viewFullPhoto} className="absolute inset-0 block size-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#244488]">
+                      <Image src={photoUrl} alt={copy.photoAlt} fill unoptimized sizes="(max-width: 640px) 33vw, 16vw" className="object-cover" />
+                      <span className="pointer-events-none absolute right-1 bottom-1 left-1 truncate bg-white/90 px-1 py-1 text-[9px] font-medium text-stone-700 sm:text-[10px]">{copy.viewFullPhoto}</span>
+                    </button>
+                    {willDelete ? <div className="absolute inset-0 flex items-center justify-center bg-white/70 text-xs font-semibold text-stone-800">{copy.removePhoto}</div> : null}
+                    <button type="button" onClick={() => togglePhotoRemoval(photo.id)} aria-label={willDelete ? copy.restorePhoto : copy.removePhoto} title={willDelete ? copy.restorePhoto : copy.removePhoto} className="absolute top-1 right-1 z-10 inline-flex size-7 items-center justify-center rounded-full bg-white/95 text-stone-700 shadow hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-700 sm:top-2 sm:right-2 sm:size-8">{willDelete ? <X className="size-4" aria-hidden="true" /> : <Trash className="size-4" aria-hidden="true" />}</button>
+                  </div>
+                })}
+                {pendingPhotos.map((photo) => <div key={photo.clientKey} className="relative aspect-[4/3] overflow-hidden border border-stone-200 bg-stone-100">
+                  <button type="button" onClick={() => setFullPhoto({ src: photo.previewUrl, alt: copy.photoAlt })} aria-label={copy.viewFullPhoto} className="absolute inset-0 block size-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#244488]">
+                    <Image src={photo.previewUrl} alt={copy.photoAlt} fill unoptimized sizes="(max-width: 640px) 33vw, 16vw" className="object-cover" />
+                    <span className="pointer-events-none absolute right-1 bottom-1 left-1 truncate bg-white/90 px-1 py-1 text-[9px] font-medium text-stone-700 sm:text-[10px]">{photo.file.name}</span>
+                  </button>
+                  <button type="button" onClick={() => removePendingPhoto(photo)} aria-label={copy.removePhoto} title={copy.removePhoto} className="absolute top-1 right-1 z-10 inline-flex size-7 items-center justify-center rounded-full bg-white/95 text-stone-700 shadow hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-700 sm:top-2 sm:right-2 sm:size-8"><X className="size-4" aria-hidden="true" /></button>
+                </div>)}
+              </div> : <p className="border border-dashed border-slate-300 bg-white px-4 py-5 text-center text-sm text-stone-500">{copy.noPhotos}</p>}
+              {hasPendingPhotoChanges ? <div className="flex flex-col gap-2 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs leading-5 text-stone-600">{copy.savePhotosHelp}</p>
+                {formId !== undefined || createdFormId !== null
+                  ? <button type="button" onClick={() => void savePhotoChanges()} disabled={isSaving} className="inline-flex h-10 w-full items-center justify-center gap-2 bg-stone-900 px-4 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">{isSaving ? <SpinnerGap className="size-4 animate-spin" aria-hidden="true" /> : <FloppyDisk className="size-4" aria-hidden="true" />}{copy.savePhotos}</button>
+                  : <button type="submit" form="inventory-form" disabled={isSaving} className="inline-flex h-10 w-full items-center justify-center gap-2 bg-stone-900 px-4 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">{isSaving ? <SpinnerGap className="size-4 animate-spin" aria-hidden="true" /> : <FloppyDisk className="size-4" aria-hidden="true" />}{copy.saveSheetAndPhotos}</button>}
+              </div> : null}
+              {photoSavedNotice ? <p className="text-sm font-medium text-emerald-700" role="status">{photoSavedNotice}</p> : null}
+            </div>
+          </section>
+
           <aside className="border-l-2 border-red-600 bg-red-50 px-3 py-2 text-[11px] leading-4 text-red-800 sm:border-l-4 sm:px-4 sm:py-3 sm:text-sm sm:leading-6">
             <strong className="font-bold uppercase">{copy.noticeTitle}</strong>{" "}
             <span className="sm:hidden">{copy.noticeMobile}</span>
@@ -627,6 +817,12 @@ export function InventoryFormEditor({ houseId, formId }: { houseId: number; form
           </div>
         </form>
       </div>
+      {fullPhoto ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/90 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={copy.photoAlt} onClick={() => setFullPhoto(null)}>
+        <button type="button" aria-label={copy.closePhoto} onClick={() => setFullPhoto(null)} className="absolute top-3 right-3 z-10 inline-flex size-11 items-center justify-center rounded-full bg-white text-stone-900 shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:top-5 sm:right-5"><X className="size-5" aria-hidden="true" /></button>
+        <div className="relative h-[85svh] w-full max-w-6xl" onClick={(event) => event.stopPropagation()}>
+          <Image src={fullPhoto.src} alt={fullPhoto.alt} fill unoptimized sizes="100vw" className="object-contain" />
+        </div>
+      </div> : null}
     </main>
   )
 }

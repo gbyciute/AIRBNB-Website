@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { DotsThree, House, MagnifyingGlass, MapPin, PencilSimple, Plus, SpinnerGap, Trash, X } from "@phosphor-icons/react"
+import { Clock, DotsThree, House, MagnifyingGlass, MapPin, PencilSimple, Plus, SpinnerGap, Trash, X } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/components/language-provider"
@@ -14,7 +14,7 @@ import { createHouse, deleteHouse, getHouses, type House as HouseRecord, type Ho
 
 const pageCopy = {
   pt: {
-    title: "MADEIRA CLEANING & CARE", subtitle: "Mantenha os seus alojamentos Airbnb e respetivas moradas organizados num só lugar.", addHouse: "Adicionar casa",
+    title: "MADEIRA CLEANING & CARE", addHouse: "Adicionar casa", workingHours: "Serviços",
     search: "Pesquisar casas por nome", dismiss: "Fechar", loading: "A carregar casas", noHouses: "Ainda não existem casas",
     noHousesHelp: "Adicione a primeira propriedade para começar a organizar o seu portefólio Airbnb.", noMatches: "Nenhuma casa encontrada", noMatchesHelp: "Experimente pesquisar outro nome.",
     houses: "Casas", open: "Abrir", actions: "Ações para", editDetails: "Editar dados", changeColor: "Alterar cor", chooseColor: "Escolher cor da casa", houseColor: "cor da casa", deleteHouse: "Eliminar casa",
@@ -23,7 +23,7 @@ const pageCopy = {
     apiError: "Não foi possível ligar à API. Confirme que o servidor está a funcionar.", saveError: "Não foi possível guardar esta casa. Tente novamente.", colorError: "Não foi possível alterar a cor da casa. Tente novamente.", deleteError: "Não foi possível eliminar esta casa. Tente novamente.", created: "Casa adicionada com sucesso.", updated: "Dados da casa atualizados.", colorUpdated: "Cor da casa atualizada.", deleted: "Casa eliminada.", close: "Fechar",
   },
   en: {
-    title: "MADEIRA CLEANING & CARE", subtitle: "Keep your Airbnb homes and their addresses together in one place.", addHouse: "Add a house",
+    title: "MADEIRA CLEANING & CARE", addHouse: "Add a house", workingHours: "Services",
     search: "Search houses by name", dismiss: "Dismiss", loading: "Loading houses", noHouses: "No houses yet",
     noHousesHelp: "Add your first property to begin building your Airbnb portfolio.", noMatches: "No matching houses", noMatchesHelp: "Try a different house name.",
     houses: "Houses", open: "Open", actions: "Actions for", editDetails: "Edit details", changeColor: "Change color", chooseColor: "Choose house color", houseColor: "house color", deleteHouse: "Delete house",
@@ -202,14 +202,18 @@ export default function Page() {
     <main className="min-h-svh bg-stone-100 p-2 text-stone-950 sm:p-6">
       <div className="mx-auto min-h-[calc(100svh-1rem)] max-w-6xl border border-stone-200 bg-stone-50 px-4 py-8 shadow-sm sm:min-h-[calc(100svh-3rem)] sm:px-10 sm:py-12">
         <header className="flex flex-col items-center border-b border-stone-200 pb-8 text-center sm:pb-10">
-          <div className="flex w-full items-center justify-end gap-3">
-            <LanguageSwitcher />
-            <AccountMenu />
+          <div className="relative z-20 -translate-y-4 flex w-full items-center justify-between gap-3 pb-4 sm:-mx-4 sm:-translate-y-5 sm:pb-0">
+            <Link href="/working-hours" className="inline-flex h-9 items-center gap-1.5 border border-stone-300 bg-white px-2.5 text-[13px] font-medium text-stone-700 transition hover:bg-stone-100 sm:-translate-x-5">
+              <Clock className="size-3.5" aria-hidden="true" />{copy.workingHours}
+            </Link>
+            <div className="flex items-center gap-3 sm:translate-x-5">
+              <LanguageSwitcher />
+              <AccountMenu compact />
+            </div>
           </div>
           <div className="flex max-w-2xl flex-col items-center">
             <Image src="/cleaning-care-mark.png" alt="Madeira Cleaning & Care logo mark" width={1000} height={777} className="mb-2 h-16 w-auto mix-blend-multiply object-contain sm:h-[72px]" />
             <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-5xl">{copy.title}</h1>
-            <p className="mt-3 max-w-lg text-sm leading-6 text-stone-600 sm:text-base sm:leading-7">{copy.subtitle}</p>
           </div>
           <div className="mt-6 flex w-full flex-col items-center gap-3 sm:mt-7">
             <Button className="w-full sm:w-auto" onClick={openCreateDialog}>

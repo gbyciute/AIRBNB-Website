@@ -4,12 +4,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
 from app.core.auth import require_authenticated
 from app.models.house import House
+from app.models.inventory_form import InventoryForm
 from app.schemas.house import HouseColorUpdate, HouseCreate, HouseRead, HouseUpdate
+from app.services.photo_storage import PhotoStorageNotConfigured, delete_photo
 
 
 router = APIRouter(prefix="/houses", tags=["houses"], dependencies=[Depends(require_authenticated)])
@@ -74,6 +76,20 @@ def delete_house(house_id: int, db: DatabaseSession) -> None:
     house = db.get(House, house_id)
     if house is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="House not found")
+
+    forms = db.scalars(
+        select(InventoryForm)
+        .options(selectinload(InventoryForm.photos))
+        .where(InventoryForm.house_id == house_id)
+    ).unique()
+    try:
+        for form in forms:
+            for photo in form.photos:
+                delete_photo(photo.object_key)
+    except PhotoStorageNotConfigured as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Photo storage is not configured") from error
+    except Exception as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Could not remove the house’s tracking photos") from error
 
     db.delete(house)
     db.commit()
