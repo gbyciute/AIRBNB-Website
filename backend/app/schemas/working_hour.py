@@ -29,7 +29,7 @@ class WorkingHourCreate(BaseModel):
         "textile",
     ]
     task: str = Field(default="", max_length=280)
-    rate: Decimal = Field(ge=1, le=1000, decimal_places=2)
+    rate: Decimal = Field(ge=5, le=10, decimal_places=2)
 
     @model_validator(mode="after")
     def validate_time_range(self) -> "WorkingHourCreate":
